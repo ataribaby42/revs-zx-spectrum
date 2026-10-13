@@ -1,5 +1,7 @@
 """Compare race set-up, lap and timer routines with the C64 code, using the
-whole mapped game state (tests/state.py)."""
+whole mapped game state (tests/state.py). The computer drivers' routines
+(MoveCars, ProcessOvertaking) must also stay within their time budgets
+(average T-states over the cases, no contention)."""
 import random
 import sys
 from pathlib import Path
@@ -20,6 +22,7 @@ ZP = {'frontSegmentIndex': 0x24, 'currentPlayer': 0x6f, 'raceStarted': 0x6c, 'ra
       'positionAhead': 0x4d, 'positionBehind': 0x5b, 'currentPosition': 0x03}
 # scratch written differently by the C64 print routines
 IGNORE = set()
+BUDGETS = {'MoveCars': 10_700, 'ProcessOvertaking': 16_250}
 
 
 def bcd(rng, hi=99):
@@ -84,6 +87,7 @@ def run(name, n=200, seed=11, prep=None, args=None, ignore=()):
     c64, z = tp.C64R(), tp.Z80()
     stub_printing(c64)
     fails = 0
+    total_t = 0
     for i in range(n):
         plausible(c64, z, rng)
         if prep:
@@ -97,7 +101,7 @@ def run(name, n=200, seed=11, prep=None, args=None, ignore=()):
         zk = {'a': a, 'c': x, 'b': y, 'carry': carry}
         if 'ix' in kw:
             zk['ix'] = kw['ix']
-        z.call(name, limit=2_000_000_000, **zk)
+        total_t += z.call(name, limit=2_000_000_000, **zk)
         errs = state.diff(c64, z, ENTRIES, ignore=IGNORE | set(ignore))
         if kw.get('ret_carry') and c64.cpu.p & 1 != z.carry:
             errs.append(f'carry: C64 {c64.cpu.p & 1} Z80 {z.carry}')
@@ -107,6 +111,10 @@ def run(name, n=200, seed=11, prep=None, args=None, ignore=()):
             fails += 1
             if fails <= 3:
                 print(f'{name} case {i} {kw}\n  ' + '\n  '.join(errs[:12]))
+    if name in BUDGETS:
+        avg = total_t / n
+        print(f'{name}: {fails}/{n}, average {avg:.0f} T (budget {BUDGETS[name]})')
+        return fails + (avg > BUDGETS[name])
     print(f'{name}: {fails}/{n}')
     return fails
 

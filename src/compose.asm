@@ -15,14 +15,11 @@ CP_PATGRASS     EQU $88                 ; grass patterns [parity]
 CP_PATROAD      EQU $8A                 ; road patterns [parity]
 
 ; SPANn (expanded below for n = 0..3): the current span (pattern B) ends at
-; pixel A, the next one has pattern C, HL = next byte to write. Fills the
-; whole bytes before the boundary byte, then merges the boundary byte (or
-; re-merges the byte just written when the boundary lies in it).
-
-cLine:          db 0
-cRowLo:         db 0
-cRow:           dw 0
-cB:             ds 4
+; pixel A, the next one has pattern C, HL = next byte to write, C' = the low
+; address byte of the row start. Fills the whole bytes before the boundary
+; byte, then merges the boundary byte (or re-merges the byte just written
+; when the boundary lies in it). A boundary at a byte start merges the whole
+; byte (mask $FF), which is the same as the next span filling it.
 
 ; Sky rows that are still sky in the buffer from the last frame (skyClean)
 ; are not written again.
@@ -62,20 +59,25 @@ Compose:
         add hl, hl
         ld de, VIEW_BUF
         add hl, de
-        ld (cRow), hl
         cpl
         add a, VIEW_ROWS                ; track line = 79 - row
-@row:
-        ld (cLine), a
-        ld c, a
+        exx
+        ld b, a                         ; B' = track line
+        exx
+@row:                                   ; HL = row start, B' = its track line
         ld a, l
-        ld (cRowLo), a
+        exx
+        ld c, a                         ; C' = row start (low byte)
+        ld a, b
+        exx
+        ld c, a                         ; C = track line
         ld a, (horizonLine)
         cp c
         jr nc, @ground
         ld b, PAT_SKY
         jp @whole
 @ground:
+        push hl
         ld a, c                         ; parity -> patterns
         and 1
         ld e, a
@@ -91,24 +93,32 @@ Compose:
         ld (@grass + 1), a
         ld a, c
         add a, EDGE_COLL % 256
+        ld d, a                         ; D = low byte of EDGE_COLL + line
         ld l, a
         ld h, EDGE_COLL / 256
         ld a, (hl)                      ; left verge colour
         cp $FF
-        jp z, @whole
+        jp z, @grassRow
         add a, a
         add a, e
         add a, CP_PATVERGE
+        ld l, a
+        ld h, COMPOSE_PAGE / 256
+        ld a, (hl)
         ld (@vl + 1), a
-        ld a, l
+        ld a, d
         add a, EDGE_COLR - EDGE_COLL
         ld l, a
+        ld h, EDGE_COLR / 256
         ld a, (hl)                      ; right verge colour
         cp $FF
-        jp z, @whole
+        jp z, @grassRow
         add a, a
         add a, e
         add a, CP_PATVERGE
+        ld l, a
+        ld h, COMPOSE_PAGE / 256
+        ld a, (hl)
         ld (@vr + 1), a
         ; boundaries b0 .. b3
         ld a, c
@@ -134,30 +144,27 @@ Compose:
         jr nc, @o2
         ld a, c
 @o2:
-        ld (cB + 3), a
+        ld (@b3 + 1), a
         ld a, c
-        ld (cB + 2), a
+        ld (@b2 + 1), a
         ld a, e
-        ld (cB + 1), a
+        ld (@b1 + 1), a
         ld a, d                         ; b0 = min(b0, b1)
         cp e
         jr c, @o3
         ld a, e
 @o3:
-        ld hl, (cRow)
-        ld h, COMPOSE_PAGE / 256
+        pop hl
 @vl:
-        ld l, 0                         ; patched: left verge pattern
-        ld c, (hl)
-        ld hl, (cRow)
+        ld c, 0                         ; patched: left verge pattern
         ld e, a                         ; SPAN 0
         rrca
         rrca
         rrca
         and $1F
-        ld d, a
-        ld a, (cRowLo)
-        add a, d                        ; boundary byte (low address byte)
+        exx
+        add a, c                        ; boundary byte (low address byte)
+        exx
         sub l                           ; bytes before it
         jr z, @m0
         jp m, @fix0
@@ -173,9 +180,6 @@ Compose:
 @m0:
         ld d, MASKX / 256
         ld a, (de)                      ; bits from the boundary on
-        inc a
-        jr z, @a0                      ; $FF: boundary at a byte start
-        dec a
         ld e, a
         ld a, b
         xor c
@@ -183,19 +187,19 @@ Compose:
         xor b
         ld (hl), a
         inc l
-@a0:
-        ld b, c                          ; grass | left verge
+        ld b, c                         ; grass | left verge
 @road:
         ld c, 0                         ; patched: road
-        ld a, (cB + 1)
+@b1:
+        ld a, 0                         ; patched: b1
         ld e, a                         ; SPAN 1
         rrca
         rrca
         rrca
         and $1F
-        ld d, a
-        ld a, (cRowLo)
-        add a, d                        ; boundary byte (low address byte)
+        exx
+        add a, c                        ; boundary byte (low address byte)
+        exx
         sub l                           ; bytes before it
         jr z, @m1
         jp m, @fix1
@@ -211,9 +215,6 @@ Compose:
 @m1:
         ld d, MASKX / 256
         ld a, (de)                      ; bits from the boundary on
-        inc a
-        jr z, @a1                      ; $FF: boundary at a byte start
-        dec a
         ld e, a
         ld a, b
         xor c
@@ -221,23 +222,19 @@ Compose:
         xor b
         ld (hl), a
         inc l
-@a1:
-        ld b, c                          ; left verge | road
-        push hl
-        ld h, COMPOSE_PAGE / 256
+        ld b, c                         ; left verge | road
 @vr:
-        ld l, 0                         ; patched: right verge pattern
-        ld c, (hl)
-        pop hl
-        ld a, (cB + 2)
+        ld c, 0                         ; patched: right verge pattern
+@b2:
+        ld a, 0                         ; patched: b2
         ld e, a                         ; SPAN 2
         rrca
         rrca
         rrca
         and $1F
-        ld d, a
-        ld a, (cRowLo)
-        add a, d                        ; boundary byte (low address byte)
+        exx
+        add a, c                        ; boundary byte (low address byte)
+        exx
         sub l                           ; bytes before it
         jr z, @m2
         jp m, @fix2
@@ -253,9 +250,6 @@ Compose:
 @m2:
         ld d, MASKX / 256
         ld a, (de)                      ; bits from the boundary on
-        inc a
-        jr z, @a2                      ; $FF: boundary at a byte start
-        dec a
         ld e, a
         ld a, b
         xor c
@@ -263,19 +257,19 @@ Compose:
         xor b
         ld (hl), a
         inc l
-@a2:
-        ld b, c                          ; road | right verge
+        ld b, c                         ; road | right verge
 @grass:
         ld c, 0                         ; patched: grass
-        ld a, (cB + 3)
+@b3:
+        ld a, 0                         ; patched: b3
         ld e, a                         ; SPAN 3
         rrca
         rrca
         rrca
         and $1F
-        ld d, a
-        ld a, (cRowLo)
-        add a, d                        ; boundary byte (low address byte)
+        exx
+        add a, c                        ; boundary byte (low address byte)
+        exx
         sub l                           ; bytes before it
         jr z, @m3
         jp m, @fix3
@@ -291,9 +285,6 @@ Compose:
 @m3:
         ld d, MASKX / 256
         ld a, (de)                      ; bits from the boundary on
-        inc a
-        jr z, @a3                      ; $FF: boundary at a byte start
-        dec a
         ld e, a
         ld a, b
         xor c
@@ -301,9 +292,10 @@ Compose:
         xor b
         ld (hl), a
         inc l
-@a3:
-        ld b, c                          ; right verge | grass
-        ld a, (cRowLo)                  ; grass to the end of the row
+        ld b, c                         ; right verge | grass
+        exx                             ; grass to the end of the row
+        ld a, c
+        exx
         add a, 32
         sub l
         jr z, @next
@@ -313,18 +305,22 @@ Compose:
         ld ixl, a
         ld iy, @next
         jp (ix)
+@grassRow:
+        pop hl                          ; 32 bytes of grass (B)
 @whole:                                 ; 32 bytes of B
-        ld hl, (cRow)
         ld ixl, 0
         ld iy, @next
         jp (ix)
-@next:
-        ld hl, (cRow)
-        ld de, 32
-        add hl, de
-        ld (cRow), hl
-        ld a, (cLine)
-        dec a
+@next:                                  ; HL = row start + 32 (low byte)
+        ld a, l
+        or a
+        jr nz, @n1
+        inc h                           ; the next page
+@n1:
+        exx
+        dec b
+        ld a, b
+        exx
         IF HIDDEN_LINES
         cp HIDDEN_LINES
         jp nc, @row

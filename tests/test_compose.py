@@ -8,6 +8,7 @@ lines are grass | left verge | road | right verge | grass with the
 boundaries b0 = min(LOUT, LIN), b1 = LIN, b2 = max(LIN, RIN),
 b3 = max(b2, ROUT); patterns depend on the track line parity. A boundary
 of 255 is an edge clamped at the right border (the span ends off the screen).
+The average time per case must stay within the budget.
 """
 import random
 import sys
@@ -20,6 +21,7 @@ SKY = 0x00
 GRASS = (0x88, 0x22)
 ROAD = (0xFF, 0xFF)
 VERGE = [(0xAA, 0x55), (0xFF, 0xFF), (0x00, 0x00), (0x00, 0x00)]
+BUDGET = 68_000                         # average T-states per case (no contention)
 
 
 def model(lout, lin, rin, rout, coll, colr, horizon):
@@ -59,6 +61,7 @@ def main():
     z = Z80()
     e1, e2, vb = z.sym('EDGE_PAGE1'), z.sym('EDGE_PAGE2'), z.sym('VIEW_BUF')
     fails = 0
+    total = 0
     for i in range(n):
         def edge():
             base = rng.randrange(256)
@@ -83,6 +86,7 @@ def main():
         for k in range(2560):
             z.mem[vb + k] = 0x5A
         t = z.call('Compose')
+        total += t
         shown = 32 * (80 - z.sym('HIDDEN_LINES'))     # rows behind the cockpit are skipped
         got = [z.mem[vb + k] for k in range(shown)]
         exp = model(lout, lin, rin, rout, coll, colr, horizon)[:shown]
@@ -97,8 +101,9 @@ def main():
                       f'cols {coll[line]} {colr[line]} horizon {horizon}')
         if i < 3:
             print(f'case {i}: {t} T')
-    print(f'compose: {fails}/{n}')
-    return fails
+    avg = total / n
+    print(f'compose: {fails}/{n}, average {avg:.0f} T (budget {BUDGET})')
+    return fails + (avg > BUDGET)
 
 
 if __name__ == '__main__':

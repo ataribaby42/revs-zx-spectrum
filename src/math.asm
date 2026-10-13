@@ -1,10 +1,19 @@
 ; Arithmetic helpers
 
 ; Div16by8: HL = HL / C (unsigned, C < 128), A = remainder. Preserves C, DE.
+; The high byte, then the low byte (8-bit shifts are faster than ADD HL,HL).
 Div16by8:
         xor a
-        REPT 16
-        add hl, hl
+        REPT 8
+        sla h
+        rla
+        cp c
+        jr c, $ + 4
+        sub c
+        inc h
+        ENDR
+        REPT 8
+        sla l
         rla
         cp c
         jr c, $ + 4

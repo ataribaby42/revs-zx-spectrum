@@ -467,7 +467,14 @@ physics and AI code, except three groups:
 * `test_compose.py` and `test_objdraw.py` compare `Compose` and the object
   renderer with Python models of the same geometry.
 * `test_raster.py` compares the edges of 80 random scenes with golden data,
-  and checks that no line below the highest road line lacks road.
+  checks that no line below the highest road line lacks road, and checks the
+  step division (`Div16by8`) against exact division.
+* `test_needle.py` compares the rev counter needle at all 152 dial positions
+  with golden data.
+* `test_compose.py`, `test_raster.py` and `test_needle.py` (and
+  `test_cars.py` for `MoveCars` and `ProcessOvertaking`) also hold the
+  routines to a time budget (T-states without contention), so a later change
+  cannot make them slower unnoticed.
 * `test_surfaces.py` checks the grass contacts against the pixels actually
   drawn on track line 10 (1,200 scenes).
 
@@ -572,8 +579,8 @@ The 48K is nearly full. What remains:
 
 | Area | Free |
 | --- | --- |
-| cold code | 49 bytes |
-| hot code | 63 bytes |
+| cold code | 14 bytes |
+| hot code | 55 bytes |
 | second hot area | 34 bytes |
 | UI overlay | 80 bytes |
 | largest track code | 2 bytes |

@@ -687,94 +687,35 @@ DrawCasIndicator:
         ex de, hl
         jr @d1
 
-; XorLine: line from (B, C) by (D, E) (signed offsets), XORed into the screen
+; XorLine: line from (B, C) by (D, E) (signed offsets), XORed into the screen.
+; The screen byte (HL) and the pixel mask (C) step from pixel to pixel.
 XorLine:
-        ld a, d                         ; x step and |dx|
-        ld h, 1
+        ld a, d                         ; x: to the right (RRC C, INC L) or
+        ld hl, $2C09                    ; to the left (RLC C, DEC L)
         or a
         jp p, @l1
         neg
-        ld h, -1
+        ld hl, $2D01
 @l1:
-        ld (@dx + 1), a
+        ld d, a                         ; D = |dx|
+        ld a, l
+        ld (@hx + 1), a
+        ld (@vx + 1), a
         ld a, h
-        ld (@sx + 1), a
-        ld a, e                         ; y step and |dy|
-        ld l, 1
+        ld (@hxb), a
+        ld (@vxb), a
+        ld a, e                         ; y: down or up
+        ld hl, ScreenDown
         or a
         jp p, @l2
         neg
-        ld l, -1
+        ld hl, ScreenUp
 @l2:
-        ld (@dy + 1), a
-        ld a, l
-        ld (@sy + 1), a
-@dx:
-        ld a, 0
-@dy:
-        cp 0
-        jr c, @steep
-        ld (@n1 + 1), a                 ; mostly horizontal
-        ld d, a
-        srl d                           ; D = error
-        ld e, a
-        inc e                           ; E = pixels
-@h1:
-        call XorPixel
-        ld a, b
-@sx:
-        add a, 0
-        ld b, a
-        ld a, d
-        ld hl, @dy + 1
-        sub (hl)
-        ld d, a
-        jr nc, @h2
-@n1:
-        add a, 0
-        ld d, a
-        ld a, c
-@sy:
-        add a, 0
-        ld c, a
-@h2:
-        dec e
-        jr nz, @h1
-        ret
-@steep:
-        ld a, (@dy + 1)                 ; mostly vertical
-        ld (@n2 + 1), a
-        ld d, a
-        srl d
-        ld e, a
-        inc e
-@v1:
-        call XorPixel
-        ld a, c
-        ld hl, @sy + 1
-        add a, (hl)
-        ld c, a
-        ld a, d
-        ld hl, @dx + 1
-        sub (hl)
-        ld d, a
-        jr nc, @v2
-@n2:
-        add a, 0
-        ld d, a
-        ld a, b
-        ld hl, @sx + 1
-        add a, (hl)
-        ld b, a
-@v2:
-        dec e
-        jr nz, @v1
-        ret
-
-; XorPixel: pixel (B, C). Preserves BC, DE.
-XorPixel:
+        ld e, a                         ; E = |dy|
+        ld (@hy + 1), hl
+        ld (@vy + 1), hl
         push de
-        ld a, c
+        ld a, c                         ; HL = screen byte of (B, C)
         call ScreenRowAddr
         ld a, b
         rrca
@@ -782,16 +723,108 @@ XorPixel:
         rrca
         and $1F
         add a, e
-        ld e, a
-        ld a, b
+        ld l, a
+        ld h, d
+        ld a, b                         ; C = its pixel mask
         and 7
         add a, MASKBIT % 256
-        ld l, a
-        ld h, MASKS / 256
+        ld e, a
+        ld d, MASKS / 256
         ld a, (de)
-        xor (hl)
-        ld (de), a
+        ld c, a
         pop de
+        ld a, d
+        cp e
+        jr c, @steep
+        ld (@hdx + 1), a                ; mostly horizontal: |dx| + 1 pixels
+        ld b, a
+        inc b
+        srl a
+        ld d, a                         ; D = error
+        ld a, e
+        ld (@hdy + 1), a
+@h1:
+        ld a, (hl)
+        xor c
+        ld (hl), a
+@hx:
+        rrc c                           ; patched: RRC C / RLC C
+        jr nc, @h2
+@hxb:
+        inc l                           ; patched: INC L / DEC L
+@h2:
+        ld a, d
+@hdy:
+        sub 0                           ; patched: |dy|
+        ld d, a
+        jr nc, @h3
+@hdx:
+        add a, 0                        ; patched: |dx|
+        ld d, a
+@hy:
+        call ScreenDown                 ; patched: ScreenDown / ScreenUp
+@h3:
+        djnz @h1
+        ret
+@steep:
+        ld a, d                         ; mostly vertical: |dy| + 1 pixels
+        ld (@vdx + 1), a
+        ld a, e
+        ld (@vdy + 1), a
+        ld b, a
+        inc b
+        srl a
+        ld d, a                         ; D = error
+@v1:
+        ld a, (hl)
+        xor c
+        ld (hl), a
+@vy:
+        call ScreenDown                 ; patched: ScreenDown / ScreenUp
+        ld a, d
+@vdx:
+        sub 0                           ; patched: |dx|
+        ld d, a
+        jr nc, @v3
+@vdy:
+        add a, 0                        ; patched: |dy|
+        ld d, a
+@vx:
+        rrc c                           ; patched: RRC C / RLC C
+        jr nc, @v3
+@vxb:
+        inc l                           ; patched: INC L / DEC L
+@v3:
+        djnz @v1
+        ret
+
+; ScreenDown / ScreenUp: HL = screen address one pixel row lower / higher
+ScreenDown:
+        inc h
+        ld a, h
+        and 7
+        ret nz
+        ld a, l
+        add a, 32
+        ld l, a
+        ret c
+        ld a, h
+        sub 8
+        ld h, a
+        ret
+
+ScreenUp:
+        ld a, h
+        dec h
+        and 7
+        ret nz
+        ld a, l
+        sub 32
+        ld l, a
+        ret c
+        ld a, h
+        add a, 8
+        ld h, a
         ret
 
 ; ScreenRowAddr: A = pixel row (0..191) -> DE = address of its first byte.

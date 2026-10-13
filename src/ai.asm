@@ -9,14 +9,23 @@ MoveCars:
         ld a, (raceStarting)
         or a
         ret m
+        ld hl, 0                        ; not a race: NOP / NOP
+        ld a, (raceStarted)
+        or a
+        jp p, @m0
+        ld a, (trackRaceSlowdown)
+        ld h, a
+        ld l, $DE                       ; a race: SBC A, trackRaceSlowdown
+@m0:
+        ld (@slow), hl
         ld c, 20
-        jp @mcar20
-
-@mcar1:
         ld a, c
         OBJ_INDEX
         ld a, c
         CAR_INDEX
+        jp @mcar20
+
+@mcar1:
         ld a, (iy + carStatus)
         or a
         jp m, @mcar8                    ; car stopped: brake
@@ -62,28 +71,21 @@ MoveCars:
         ld a, $20
 @m3a:
         ld (T), a
+        ld e, a                         ; E = T
         ld a, (iy + carStatus)
         and $40
         jr z, @mcar5
         ld a, 7                         ; overtaking boost
 @mcar5:
         add a, (iy + driverSpeed)
-        ld b, a
         ccf                             ; Z80 borrow = not 6502 carry
-        ld hl, raceStarted
-        bit 7, (hl)
-        ld a, b
-        jr z, @mcar6
-        ld hl, trackRaceSlowdown
-        sbc a, (hl)
-@mcar6:
-        ld b, 0
-        ld hl, T
-        sub (hl)
-        jr nc, @m7
-        dec b
-@m7:
-        ld h, b
+@slow:
+        sbc a, 0                        ; patched: SBC A, n in a race, else
+                                        ; NOP / NOP
+        sub e                           ; - T
+        ld h, 0
+        jr nc, @accel
+        dec h
         jr @accel
 @past:
         ld a, (iy + carSpeedHi)
@@ -251,6 +253,8 @@ MoveCars:
 @mcar20:
         dec c
         ret m
+        dec ixl                         ; IX, IY: the entries of car C
+        dec iyl
         ld a, (currentPlayer)
         cp c
         jr z, @mcar20
@@ -264,6 +268,8 @@ MoveCars:
 ; Per position: IY = car X (this car), IX = car Y (the car ahead).
 
 ProcessOvertaking:
+        ld ixh, CAR_PAGE / 256
+        ld iyh, CAR_PAGE / 256
         ld a, (currentPosition)
         ld c, a
 @tact1:
@@ -275,7 +281,10 @@ ProcessOvertaking:
         ld a, (hl)
         ld (T), a
         ld e, a                         ; E = car X
-        call GetPositionAhead
+        dec c                           ; C = the position ahead
+        jp p, @pa
+        ld c, 19
+@pa:
         ld a, DRIVERS_IN_ORDER % 256
         add a, c
         ld l, a
@@ -283,20 +292,17 @@ ProcessOvertaking:
         ld a, c
         ld (G), a
         ld a, e
-        CAR_INDEX
+        add a, OBJ_BIAS
+        ld iyl, a
         ld a, d
         add a, OBJ_BIAS
         ld ixl, a
-        ld ixh, CAR_PAGE / 256
         xor a
         ld (N), a
         ld (iy + carSteering), a
         ld a, $80
         ld (Hv), a
         ; distance from X to Y in segments (C64: inline CompareCarSegments)
-        ld a, (ix + carProgress)
-        sub (iy + carProgress)
-        push af
         ld h, OBJ_PAGE / 256
         ld a, OBJ_SEGLO % 256
         add a, e
@@ -313,7 +319,8 @@ ProcessOvertaking:
         ld l, a
         ld d, (hl)
         ex de, hl                       ; HL = segment of Y
-        pop af
+        ld a, (ix + carProgress)        ; (the borrow of the progress)
+        sub (iy + carProgress)
         sbc hl, bc
         jp m, @neg
         ld a, h
@@ -548,9 +555,13 @@ ProcessOvertaking:
         ld a, (N)
         ld (hl), a
 @tact19:
-        ld a, (W)
+        ld a, (W)                       ; C = the position behind
+        inc a
+        cp 20
+        jr c, @pb
+        xor a
+@pb:
         ld c, a
-        call GetPositionBehind
         ld a, (currentPosition)
         cp c
         jp nz, @tact1
