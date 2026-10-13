@@ -8,8 +8,8 @@ __pycache__/
 .venv/
 venv/
 
-# Claude Code: per-user settings
-.claude/settings.local.json
+# Claude Code: local only
+.claude/
 
 # Editors and OS
 .vscode/
