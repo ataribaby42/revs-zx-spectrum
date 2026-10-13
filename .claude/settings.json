@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "cbcx-basic-sdd@kontron-marketplace": false
+  },
+  "cbcx-basic-sdd": {
+    "allowCommits": true
+  }
+}

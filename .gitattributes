@@ -1,0 +1,36 @@
+# Text files are stored with LF in the repository and checked out with the
+# platform's line ending (CRLF on Windows), whatever the editor wrote.
+* text=auto
+
+*.asm text
+*.py  text diff=python
+*.md  text diff=markdown
+*.txt text
+*.lst text
+*.json text
+
+# cmd.exe misreads labels and goto in batch files with LF endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# ZX Spectrum, C64 and BBC images, raw binaries, pictures
+*.tap binary
+*.tzx binary
+*.sna binary
+*.z80 binary
+*.szx binary
+*.scr binary
+*.bin binary
+*.prg binary
+*.d64 binary
+*.t64 binary
+*.crt binary
+*.ssd binary
+*.dsd binary
+*.png binary
+*.gif binary
+*.jpg binary
+*.bmp binary
+*.wav binary
+*.pdf binary
+*.zip binary

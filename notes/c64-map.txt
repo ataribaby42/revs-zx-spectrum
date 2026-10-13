@@ -1,0 +1,719 @@
+loop_C2007                       $2007 MISSING
+C2018                            $2018 MISSING
+C2040                            $2040 MISSING
+entr1                            $1202 MISSING
+SwapCode                         $790e MISSING
+swap1                            $7930 MISSING
+swap2                            $7947 MISSING
+swap3                            $7953 MISSING
+move1                            $7964 MISSING
+move2                            $7978 MISSING
+move4                            $7988 MISSING
+MakeSound                        $0b4a MISSING
+DefineEnvelope                   $0b65 MISSING
+MakeSoundEnvelope                $0b6e MISSING
+wing1                            $0b79 MISSING
+SpinTrackSection                 $0ba2 -> $0b8a
+AddVectors                       $0bcc -> $0bb4
+Multiply8x8                      $0c00 SAME
+Divide16x16                      $0c47 MISSING
+GetObjectDistance                $0ca5 MISSING
+odis1                            $0cc2 MISSING
+GetRotationMatrix                $0d01 SAME
+rotm1                            $0d1b SAME
+rotm2                            $0d27 SAME
+rotm3                            $0d4f SAME
+rotm5                            $0d7f SAME
+rotm6                            $0d97 SAME
+rotm7                            $0da3 SAME
+GetAngleInRadians                $0db3 SAME
+Multiply8x16                     $0dbf SAME
+Multiply16x16                    $0dd7 SAME
+muls1                            $0dee SAME
+muls2                            $0dfa SAME
+muls3                            $0e10 SAME
+muls4                            $0e22 SAME
+Negate16Bit                      $0e42 SAME
+ScanKeyboard                     $0e50 SAME
+FlushSoundBuffer                 $0e5a SAME
+MakeDrivingSounds                $0e74 MISSING
+soun1                            $0e92 MISSING
+soun3                            $0e9e MISSING
+soun5                            $0ec0 MISSING
+ProcessShiftedKeys               $0ee5 MISSING
+shif1                            $0ef0 -> $0e9b
+shif2                            $0f01 -> $0eac
+shif3                            $0f11 MISSING
+shif4                            $0f1b MISSING
+shif6                            $0f2c MISSING
+shif8                            $0f48 MISSING
+sort1                            $0f67 -> $0f11
+sort2                            $0f6f -> $0f19
+sort3                            $0f9b -> $0f45
+sort4                            $0faa -> $0f54
+sort5                            $0fba -> $0f64
+sort6                            $0fd4 -> $0f7e
+sort7                            $0fec -> $0f96
+UpdateLapTimers                  $0ffe -> $0fa8
+laps1                            $102a -> $0fd4
+laps2                            $1032 -> $0fdc
+laps4                            $1056 -> $1000
+laps6                            $106f -> $1019
+laps7                            $1089 MISSING
+rcar2                            $10a3 -> $0c4f
+rcar4                            $10bb -> $0c67
+rcar5                            $10cf -> $0c7b
+rcar6                            $10d7 -> $0c83
+rcar8                            $10f9 -> $0ca5
+rcar9                            $1104 -> $0cb0
+rcar10                           $1113 -> $0cbf
+CheckForCrash                    $111e MISSING
+cras1                            $1138 MISSING
+cras2                            $114c MISSING
+FinishRace                       $1163 MISSING
+fini1                            $1171 -> $10b3
+fini2                            $1199 -> $10db
+PushCarOffTrack                  $11ab -> $10ed
+ClearTotalRaceTime               $11be -> $1100
+BuildPlayerCar                   $11ce -> $1182
+bpla1                            $11db -> $118f
+bpla2                            $11f5 -> $11a9
+GetSectionCoord                  $1208 -> $11bc $11c2
+GetSectionCoords                 $122d -> $11e1
+CopySectionData                  $124d -> $1201
+GetPlayerIndex                   $125a -> $120e
+GetFirstSegment                  $1267 -> $121b
+getf1                            $1274 -> $1228
+getf2                            $1284 -> $1238
+getf3                            $128e MISSING
+shuf1                            $12a2 -> $1256
+shuf2                            $12ba -> $126e
+IncSectionPointers               $12c8 -> $127c
+SetSectionPointers               $12dc -> $1290
+secp1                            $12e3 -> $1297
+GetTrackSegment                  $12f7 -> $12ab
+gets1                            $1304 MISSING
+gets2                            $131b -> $12cf
+gets3                            $1326 -> $12da
+gets4                            $1333 MISSING
+gets6                            $134f MISSING
+gets7                            $1365 MISSING
+gets10                           $137c MISSING
+gets11                           $1398 -> $1359
+gets12                           $13b4 -> $1375
+gets13                           $13cc -> $138d
+UpdateVectorNumber               $13e0 -> $13a1
+ChangeDirection                  $13fb -> $13bc
+MovePlayerBack                   $140b -> $13cc
+TurnPlayerAround                 $1420 -> $13e1
+turn1                            $142b -> $13ec
+MovePlayer                       $1433 -> $13f4
+GetSegmentVector                 $1442 -> $1403
+coor1                            $1453 -> $1414
+coor2                            $145c -> $141d
+coor4                            $146b -> $142c
+MoveObjectForward                $147c -> $143d
+fore2                            $149b -> $145c
+fore3                            $14a6 -> $1467
+MoveObjectBack                   $14c3 -> $1484
+back1                            $14d2 -> $1493
+back2                            $14dd -> $149e
+back3                            $14e4 -> $14a5
+GetSegmentSteering               $150e MISSING
+rlin3                            $1532 -> $14f3
+rlin4                            $1538 -> $14f9
+rlin5                            $1557 -> $1518
+ProcessDrivingKeys               $1579 MISSING
+keys1                            $159f -> $1583
+keys2                            $15af MISSING
+keys3                            $15ba MISSING
+keys4                            $15c3 MISSING
+keys6                            $15df -> $15cf
+keys7                            $15f4 MISSING
+keys10                           $1612 -> $1602
+keys13                           $163b MISSING
+keys15                           $165e MISSING
+keys17                           $166b MISSING
+keys19                           $1678 -> $1681
+keys20                           $1681 MISSING
+keys21                           $16a3 MISSING
+keys25                           $16bd -> $16d9
+MainDrivingLoop                  $16dc -> $b202
+main5                            $1701 -> $b224 $b227 $b22a $b22d
+main6                            $1753 -> $b26b
+main8                            $1765 MISSING
+main9                            $1773 MISSING
+main10                           $178f MISSING
+main11                           $17a8 -> $b2c0
+main13                           $17ba -> $b2cc
+AddTimeToTimer                   $17c3 MISSING
+time1                            $17cf -> $b2e1
+time2                            $17e2 -> $b2f4
+PrintSecondLineGap               $17fc -> $b30e
+rese1                            $1809 MISSING
+rese2                            $1810 MISSING
+rese3                            $181e -> $b336
+rese5                            $1851 -> $b369
+rese6                            $1885 -> $b39d
+rese7                            $18a5 -> $b3bd
+SetBackground                    $18bc -> $b3d4
+bgnd4                            $18e3 MISSING
+dash1                            $18ee -> $b40c
+dash3                            $18fe -> $b41c
+dash4                            $1906 -> $b424
+dash5                            $191e -> $b43c
+dash6                            $1929 MISSING
+CheckVergeOnScreen               $1933 -> $b451
+MapSegmentsToLines               $193e -> $b45f
+maps2                            $1955 MISSING
+maps8                            $1979 MISSING
+maps9                            $1980 -> $b4ab
+maps10                           $198e MISSING
+maps12                           $1998 -> $b4ce
+maps14                           $19a5 MISSING
+DrawVergeEdge                    $19af MISSING
+vedg1                            $19d7 MISSING
+vedg3                            $19fd MISSING
+vedg4                            $1a10 -> $2a86
+vedg5                            $1a15 MISSING
+DrawTrack                        $1a20 -> $b514
+dtra1                            $1a30 -> $b524
+dtra2                            $1a69 MISSING
+SetVergeBackground               $1a98 -> $b58d
+sver1                            $1aa7 -> $b59c
+sver3                            $1acc -> $b5c1
+sver4                            $1ad8 -> $b5cd
+sver5                            $1ae4 -> $b5d9
+sver6                            $1af9 -> $b5ee
+sver9                            $1b0b -> $b600
+corn1                            $1b14 MISSING
+corn2                            $1b29 -> $1127
+corn3                            $1b49 -> $1147
+corn4                            $1b5b -> $1159
+corn5                            $1b6b -> $1169
+corn6                            $1b74 MISSING
+UpdatePositionInfo               $1b84 -> $5221
+posi1                            $1ba2 MISSING
+ProcessContact                   $1bb9 -> $4f72
+cont1                            $1bcd -> $4f86
+cont2                            $1bdf -> $4f98
+cont4                            $1bfe -> $4fb7
+SquealTyres                      $1c0b -> $4fc4
+DrawObjectEdge                   $1c1c MISSING
+draw2                            $1c4e MISSING
+draw3                            $1c5a MISSING
+draw4                            $1c66 MISSING
+draw6                            $1c72 -> $171d
+draw7                            $1c7b MISSING
+draw8                            $1c9a -> $173f
+draw9                            $1ca4 -> $1749
+draw11                           $1cb2 MISSING
+draw12                           $1ccb MISSING
+draw13                           $1d05 -> $17ba
+draw16                           $1d1d -> $17d2
+draw17                           $1d2d -> $17e2
+draw18                           $1d3c -> $17f1
+draw20                           $1d52 MISSING
+draw22                           $1d6d MISSING
+draw25                           $1d7c MISSING
+draw28                           $1d90 MISSING
+draw29                           $1dad -> $18d8
+draw30                           $1db7 -> $18e2
+draw32                           $1dc5 -> $18f0
+FillAfterObject                  $1de0 MISSING
+edge11                           $1e25 MISSING
+gedg1                            $1e40 MISSING
+CopyTyreDashEdges                $1e64 MISSING
+fill1                            $1e8d -> $1a6c
+fill4                            $1ebc -> $1a9b
+fill7                            $1edb -> $1aba
+fill8                            $1ee2 -> $1ac1
+fill9                            $1ee7 -> $1ac6
+GetColour                        $1eed MISSING
+gcol1                            $1efc MISSING
+gcol2                            $1f31 MISSING
+gcol4                            $1f41 MISSING
+gcol7                            $1f53 MISSING
+gcol8                            $1f5c MISSING
+gcol9                            $1f68 MISSING
+gcol12                           $1f7f MISSING
+gcol13                           $1f8b MISSING
+gcol14                           $1f95 MISSING
+SetMarker                        $1f9b MISSING
+dobj1                            $1fb8 MISSING
+dobj2                            $1fd5 -> $1af7
+dobj3                            $1fde -> $1b00
+dobj4                            $1feb MISSING
+dobj5                            $1ffa -> $1b1c
+dobj6                            $2002 -> $1b24
+ScaleObject                      $202a MISSING
+prep1                            $2049 MISSING
+prep4                            $207a MISSING
+prep5                            $2080 MISSING
+drob1                            $209c MISSING
+drob2                            $20b8 MISSING
+drob4                            $20cf MISSING
+drob5                            $20f1 MISSING
+drob9                            $210c -> $1c83
+drob10                           $2117 MISSING
+GetObjYawAngle                   $2147 -> $1cda
+rotn1                            $2165 -> $1cf8
+rotn2                            $2185 MISSING
+rotn3                            $2193 MISSING
+rotn4                            $21a6 MISSING
+rotn6                            $21c1 MISSING
+rotn7                            $21ff -> $1f07
+rotn8                            $2207 -> $1e4f $1f0f
+rotn9                            $220d MISSING
+rotn11                           $2227 -> $1e9c
+rotn14                           $2239 MISSING
+rotn15                           $2277 -> $1e47
+rotn16                           $227f -> $1f0f
+GetObjPitchAngle                 $2287 -> $1f17
+pang1                            $22a5 MISSING
+pang5                            $22ca MISSING
+pang7                            $22f8 -> $1ff9
+GetSectionAngles                 $22ff -> $2000
+gsec1                            $230c -> $200d
+gsec2                            $2318 -> $2019
+gsec4                            $2330 -> $2031
+gsec5                            $234f -> $2050
+gsec7                            $2360 -> $2061
+gsec8                            $2374 MISSING
+gsec10                           $239a -> $20a7
+gsec11                           $23ac -> $20b9
+GetSectionYawAngle               $23c0 MISSING
+gseg1                            $23d8 MISSING
+gseg2                            $23e7 -> $20f0
+gseg5                            $2408 -> $2111
+gseg6                            $2410 -> $2119
+gseg7                            $2423 -> $212c
+gseg8                            $2450 MISSING
+gseg10                           $246a MISSING
+gseg11                           $247e MISSING
+gseg13                           $2490 -> $21b1
+gseg15                           $24b1 -> $21d2
+MovePlayerSegment                $24b9 -> $21da
+mpla1                            $24c3 -> $21e4
+mpla2                            $24ce -> $21ef
+mpla3                            $24d6 MISSING
+mpla4                            $24e1 MISSING
+mpla5                            $24e9 MISSING
+GetTrackAndMarkers               $24f6 MISSING
+gtrm1                            $2528 -> $226b
+gtrm2                            $2535 -> $2278
+GetSegmentDetails                $254a MISSING
+segd2                            $255d -> $22a0
+GetVergeAndMarkers               $2565 -> $22a8
+gmar2                            $2573 -> $22b6
+gmar3                            $2589 MISSING
+gmar4                            $259b MISSING
+gmar5                            $25a3 -> $22e4
+gmar6                            $25a9 MISSING
+gmar7                            $25c0 MISSING
+gmar8                            $25f1 -> $234b
+gmar9                            $25fd MISSING
+gmar11                           $2608 MISSING
+hide1                            $2621 -> $2383
+dely1                            $262f -> $2391
+MoveAndDrawCars                  $2637 -> $2399
+dcar1                            $2659 -> $23bb
+dcar3                            $2666 MISSING
+SwapDriverPosition               $267f -> $23e3
+tact1                            $2694 MISSING
+tact3                            $26d1 -> $24a1
+tact5                            $26e9 -> $24b9
+tact7                            $270b -> $24db
+tact8                            $271c -> $24ec
+tact9                            $2729 MISSING
+tact12                           $2749 -> $251d
+tact13                           $275e -> $2532
+tact14                           $2769 -> $253d
+tact15                           $277d -> $2551
+tact18                           $278c -> $2560
+tact19                           $2797 MISSING
+CompareSegments                  $27ab MISSING
+dist1                            $27bf -> $25a1
+dist2                            $27d8 MISSING
+MoveCars                         $27ed -> $25d3
+mcar1                            $27f6 MISSING
+mcar2                            $280d -> $25f3
+mcar3                            $282f MISSING
+mcar4                            $2838 MISSING
+mcar5                            $2843 -> $2629
+mcar6                            $284e -> $2634
+mcar9                            $2861 MISSING
+mcar12                           $2883 MISSING
+mcar13                           $2892 MISSING
+mcar15                           $28c1 -> $275e
+mcar17                           $28ce -> $276b
+mcar20                           $28e7 -> $2784
+BuildVisibleCar                  $28f2 -> $278f
+bvis2                            $2914 -> $27b1
+bvis3                            $2922 MISSING
+BuildCarObjects                  $2937 -> $27d4
+bcar1                            $2960 -> $27fd $284a
+bcar3                            $297e -> $281b
+bcar4                            $298f -> $282c
+bcar5                            $29ad -> $27fd $284a
+bcar7                            $29cb -> $2868
+bcar8                            $29f4 -> $2891
+bcar9                            $2a0f -> $28ac
+bcar11                           $2a50 -> $28ed
+GetObjectAngles                  $2a5f MISSING
+SetObjectDetails                 $2a76 -> $2926
+sobj1                            $2a8f -> $293f
+sobj3                            $2a99 -> $2949
+CheckForContact                  $2ab3 MISSING
+DrawCarOrSign                    $2ad1 -> $297e
+dcas2                            $2af3 -> $29a0
+halc1                            $2b10 -> $29bd
+halc2                            $2b16 -> $29c3
+DrawSegmentEdge                  $2b26 MISSING
+dver2                            $2b40 MISSING
+dver3                            $2b7b -> $2ad6
+dver4                            $2b89 MISSING
+dver7                            $2bbd -> $2b20
+dver9                            $2bcd -> $2b30
+dver10                           $2bdb -> $2b3e
+dver11                           $2be3 MISSING
+dver12                           $2bed MISSING
+dver15                           $2c01 MISSING
+dver16                           $2c13 MISSING
+dver17                           $2c44 MISSING
+dver18                           $2c53 MISSING
+dver19                           $2c68 -> $2b8a
+dver20                           $2c70 MISSING
+dver21                           $2cb4 MISSING
+dver26                           $2cef -> $2bc9 $2be1 $2bfd $2c15
+dver28                           $2cfc -> $2c22
+DrawShallowToRight               $2d17 MISSING
+shlr20                           $2d88 MISSING
+DrawShallowToLeft                $2d9a MISSING
+shrl20                           $2e0b MISSING
+DrawSteepToRight                 $2e20 -> $2d2e $2da7
+stlr2                            $2e30 -> $2d3e $2d6c $2dd8 $2e06
+stlr3                            $2e3b -> $2d49 $2d77 $2dcd $2dfb
+stlr4                            $2e46 -> $2d54 $2d82 $2dc2 $2df0
+stlr5                            $2e51 -> $2d5f
+stlr6                            $2e5e -> $2d3e $2d6c $2dd8 $2e06
+stlr7                            $2e69 -> $2d49 $2d77 $2dcd $2dfb
+stlr8                            $2e74 -> $2d54 $2d82 $2dc2 $2df0
+stlr9                            $2e7f -> $2d8d
+DrawSteepToLeft                  $2e99 -> $2d2e $2da7
+strl2                            $2ea9 -> $2d5f $2d8d $2db7 $2de5
+strl3                            $2eb4 -> $2d54 $2d82 $2dc2 $2df0
+strl4                            $2ebf -> $2d49 $2d77 $2dcd $2dfb
+strl5                            $2eca -> $2dd8
+strl6                            $2ed7 -> $2d5f $2d8d $2db7 $2de5
+strl7                            $2ee2 -> $2d54 $2d82 $2dc2 $2df0
+strl8                            $2eed -> $2d49 $2d77 $2dcd $2dfb
+strl9                            $2ef8 -> $2e06
+UpdateBackground                 $2f19 MISSING
+upba1                            $2f22 MISSING
+upba2                            $2f2a MISSING
+verl1                            $2f47 MISSING
+verl2                            $2f4e MISSING
+verl6                            $2f63 -> $2e87 $2ed0
+verl8                            $2f72 MISSING
+StopDrawingEdge                  $2f7e MISSING
+verb1                            $2f89 MISSING
+verb2                            $2f90 MISSING
+verb6                            $2fa5 -> $2e87 $2ed0
+verb8                            $2fb4 MISSING
+DrawGrassRight                   $2fc0 MISSING
+grar1                            $2fcd MISSING
+DrawGrassLeft                    $2fd7 MISSING
+gral1                            $2fe4 MISSING
+CheckDashData                    $2fee -> $2eeb
+fenc3                            $31d2 SAME
+fenc5                            $31de SAME
+fenc6                            $31eb SAME
+name1                            $3256 SAME
+CheckRestartKeys                 $3261 MISSING
+RestartGame                      $3273 SAME
+GetNumberFromText                $32d0 SAME
+tnum1                            $32d8 SAME
+Absolute8Bit                     $3450 SAME
+wait2                            $34e0 MISSING
+Print2DigitBCD                   $37d6 SAME
+pnum1                            $37e5 SAME
+head1                            $3a52 MISSING
+head2                            $3a61 MISSING
+shortAxis                        $3b86 SAME
+stepAxis                         $3b8e SAME
+GetWingSettings                  $3c50 SAME
+PrintRaceClass                   $3c6f SAME
+GetDriverAddress                 $3ceb SAME
+spac1                            $3d52 SAME
+DrawFence                        $3d5c MISSING
+fenc1                            $3d68 SAME
+SetRowColours                    $3e60 SAME
+GetNumberInput                   $3ee0 SAME
+numb1                            $3eee SAME
+driverNames1                     $4050 MISSING
+ResetBestLapTime                 $40eb SAME
+driverNames2                     $4150 MISSING
+PrintHeader                      $41d0 SAME
+driverNames3                     $4250 MISSING
+PrintGearNumber                  $42d0 SAME
+rall1                            $42ee SAME
+driverNames4                     $4350 MISSING
+Print234DigitBCD                 $43d0 SAME
+Print4DigitBCD                   $43e7 SAME
+flub1                            $43f8 SAME
+driverNames5                     $4450 MISSING
+GetSectionSteering               $44c6 -> $4516
+slin1                            $44d5 -> $4525
+slin2                            $44e0 -> $4530
+ApplyElevation                   $44ea -> $453a
+elev1                            $44f5 -> $4545
+elev3                            $4510 -> $4560
+elev4                            $4516 -> $4566
+elev5                            $4521 -> $4571
+elev7                            $452d -> $457d
+elev8                            $454f -> $459f
+elev10                           $4561 -> $45b1
+elev12                           $4574 -> $45c4
+elev13                           $4593 MISSING
+elev14                           $45a8 -> $45f8
+elev15                           $45b3 MISSING
+elev18                           $45c9 -> $4619
+elev19                           $45df -> $462f
+MultiplyHeight                   $4610 -> $4660
+MovePlayerOnTrack                $4626 MISSING
+mseg1                            $4639 -> $468b
+mseg2                            $4647 -> $4699
+mseg3                            $4656 MISSING
+GetCarInSegment                  $4676 -> $46c8
+ScaleCarInSegment                $4687 -> $46d9
+scar1                            $4693 -> $46e5
+scar2                            $4699 -> $46eb
+ApplyDrivingModel                $46a1 -> $46f3
+dmod1                            $46cd MISSING
+dmod2                            $4710 -> $4762
+dmod3                            $4719 -> $476b
+ApplySpinYaw                     $4729 -> $477b
+Multiply8x16Signed               $4753 -> $47a5
+MultiplyBy1Point5                $4765 -> $47b7
+mulh1                            $476b -> $47bd
+ApplyTyresAndSkids               $4779 -> $47cb
+gfor3                            $4795 -> $47e7
+ApplySteeringSpeed               $47a5 -> $47f7
+ApplySteeringForce               $47c5 -> $4817
+AddSteeringForce                 $47e5 -> $4837
+ScaleTyreForces                  $47f9 -> $484b
+forc2                            $4819 -> $486b
+forc3                            $4820 -> $4872
+forc4                            $4832 -> $4884
+MultiplyCoords                   $486d -> $48bf
+mcoo1                            $4876 -> $48c8
+AddCoords                        $48a7 -> $48f9
+RotateCoordToCar                 $48b9 -> $490b
+RotateVector                     $48c7 -> $4919
+delt1                            $48f3 -> $4945 $498b
+delt2                            $4903 -> $4955
+delf1                            $4939 -> $4945 $498b
+delf2                            $4949 MISSING
+delf3                            $4951 -> $49a3
+ProcessEngineStart               $4978 MISSING
+engs3                            $4993 -> $49ea
+CalcRevsNoTorque                 $499f MISSING
+urev1                            $49b0 MISSING
+ThrobRevsNoTorque                $49bb -> $4a12
+ApplyEngine                      $49ce MISSING
+engi1                            $49ee -> $4a45
+engi2                            $4a01 -> $4a58
+engi5                            $4a2c -> $4a83
+engi6                            $4a37 -> $4a8e
+engi7                            $4a3f -> $4a96
+engi8                            $4a48 -> $4a9f
+engi9                            $4a51 -> $4aa8
+engi10                           $4a58 -> $4aaf
+engi11                           $4a66 -> $4abd
+engi12                           $4a76 -> $4acd
+SetEngineTorque                  $4a87 -> $4ade
+ApplyTyreForces                  $4a91 MISSING
+tfor1                            $4aa2 -> $4af9
+tfor2                            $4ab4 -> $4b0b
+tfor3                            $4acf -> $4b26
+ApplySkidForces                  $4af7 -> $4b4e
+ApplyLimitAndSign                $4b47 -> $4b9e
+lims1                            $4b51 -> $4ba8
+Scale16Bit                       $4b61 -> $4bb8
+scal2                            $4b79 -> $4bd0
+GetTyreForces                    $4b88 -> $4bdf
+tyfo1                            $4baf -> $4c06
+tyfo2                            $4bbc -> $4c13
+ApplyGrassOrTrack                $4bcf -> $4c26
+gras1                            $4be1 -> $4c38
+gras2                            $4c06 -> $4c5d
+gras3                            $4c12 -> $4c69
+gras5                            $4c28 MISSING
+gras6                            $4c30 -> $4c87
+gras7                            $4c51 -> $4ca8
+ApplyWingBalance                 $4c65 -> $4cbc
+bala2                            $4c77 -> $4cce
+BuildRoadSign                    $4ca4 -> $4cfb
+sign1                            $4cbb -> $4d12
+sign2                            $4d09 -> $4d60
+sign3                            $4d11 -> $4d68
+AddScaledVector                  $4d21 -> $4d78
+addv1                            $4d2d -> $4d84
+driv1                            $4d55 -> $4dac
+PrintFirstLine                   $4d74 MISSING
+toke1                            $4d80 -> $1915 $4dd7
+toke2                            $4d8a -> $4de1
+toke4                            $4dae -> $4e05
+toke5                            $4db6 -> $4e0d
+ApplyBounce                      $4dcb -> $4e22
+cust1                            $4de0 MISSING
+cust2                            $4dfb MISSING
+cust3                            $4e11 MISSING
+ScreenHandler                    $4e5c MISSING
+hand2                            $4e83 MISSING
+hand4                            $4e92 MISSING
+hand5                            $4e9b MISSING
+hand6                            $4ea3 MISSING
+hand8                            $4ec5 MISSING
+hand10                           $4ed8 MISSING
+hand12                           $4ee9 MISSING
+hand14                           $4f0a MISSING
+KillCustomScreen                 $4f23 MISSING
+SetScreenMode7                   $4f39 MISSING
+MoveHorizon                      $4f44 -> $4e41
+hori1                            $4f54 MISSING
+hori2                            $4f5b MISSING
+UpdateLaps                       $4f77 -> $4e5f
+ulap4                            $4f9d -> $4e85
+ulap5                            $4fa8 -> $4e90
+ulap6                            $4faf MISSING
+ulap7                            $4fb7 -> $4e9f
+ulap8                            $4fcc -> $4eb4
+ulap9                            $4ffb -> $4ee3
+ZeroTimer                        $5011 -> $4ef9
+PrintBestLapTime                 $501d MISSING
+PrintLapTime                     $502d MISSING
+GetADCChannel                    $503f MISSING
+ProcessTime                      $5052 -> $4f38
+tick2                            $505f -> $4f45
+tick4                            $506f -> $4f55
+GetPositionBehind                $5084 -> $256d $4f6a
+PrintCharacter                   $5092 MISSING
+char1                            $509d MISSING
+char2                            $50b0 MISSING
+char3                            $50bc -> $8d18 $91cc $91cd $91eb
+char5                            $50c6 -> $5013
+char6                            $50d1 -> $501e
+char7                            $50e8 -> $5035
+char8                            $50f6 MISSING
+GetScreenAddress                 $50fc -> $5059
+erev1                            $5123 MISSING
+UpdateDashboard                  $513a -> $5097
+upda1                            $514d -> $50aa
+upda3                            $5161 -> $50be
+upda4                            $5170 -> $50cd
+upda5                            $517e -> $50db
+upda6                            $518b -> $50e8
+DrawRevCounter                   $51a8 -> $5105
+revs1                            $51b4 -> $5111
+revs3                            $51c5 -> $5122
+revs4                            $51d8 -> $5135
+revs5                            $51e9 -> $5146
+DrawDashboardLine                $5204 -> $5161
+dlin3                            $5221 -> $517e
+dlin4                            $523d -> $519a
+dlin5                            $524e -> $51ab
+dlin6                            $5267 -> $51c4
+dlin7                            $527b -> $51d8
+dlin8                            $529b -> $51f8
+AnimateTyres                     $52a4 MISSING
+tyre1                            $52ba MISSING
+tyre2                            $52e2 MISSING
+AwardRacePoints                  $5a25 -> $2f25
+poin1                            $5a39 -> $2f39
+poin2                            $5a4d -> $2f4d
+poin6                            $5a62 -> $2f62
+GetTextInput                     $6300 MISSING
+text2                            $6316 -> $6748
+text3                            $6329 -> $675b
+text4                            $6334 -> $6766
+text7                            $6345 -> $6777
+SetDriverSpeed                   $635d MISSING
+fast1                            $6367 MISSING
+fast2                            $6372 MISSING
+fast3                            $637b -> $67ad
+fast5                            $6395 -> $67c7
+ppos1                            $63a6 -> $67d8
+ppos2                            $63ae -> $67e0
+SetupGame                        $63bd MISSING
+setp1                            $63cf MISSING
+MainLoop                         $63e0 -> $6810
+game1                            $640a -> $683a
+game2                            $641f -> $684f
+game3                            $6436 -> $6866
+game4                            $6457 -> $6887
+game5                            $6474 -> $68a4
+game6                            $6480 -> $68b0
+game8                            $64a2 -> $68d2
+game9                            $64b3 -> $68e3
+game10                           $64bc -> $68ec
+game11                           $64cf -> $68ff
+game14                           $64fd -> $692d
+game15                           $6515 -> $6945
+game16                           $6525 -> $6955
+race1                            $6560 MISSING
+mopt2                            $657c MISSING
+mopt3                            $658d MISSING
+mopt4                            $659e -> $69f7
+mopt6                            $65af MISSING
+mopt7                            $65b7 MISSING
+ibcd1                            $65ce -> $6a33
+PrintDriverTable                 $65d3 -> $6a38
+dtab1                            $65dd -> $6a42
+dtab2                            $65f5 -> $6a5a
+dtab3                            $6618 -> $6a7d
+dtab4                            $662b -> $6a90
+dtab6                            $6643 -> $6aa8
+PrintPositionName                $667b -> $6ae0
+PrintDriverPrompt                $6687 -> $6aec
+AddRacePoints                    $6698 -> $6afd
+resl1                            $66ba MISSING
+resl2                            $66cd MISSING
+GetDriverName                    $66d4 -> $6b1b
+cars2                            $66e6 -> $5208
+cars3                            $66ef -> $5211
+UpdateMirrors                    $7b00 -> $3cb6 $3f2b
+upmi2                            $7b2e -> $3c40 $3e9d
+ShowStartingLights               $7b4a MISSING
+star2                            $7b64 MISSING
+star4                            $7b75 MISSING
+star6                            $7b81 MISSING
+star7                            $7b8a -> $3ab0 $3e41
+star8                            $7b93 -> $3ab9
+PrintTimer                       $7b9c -> $3d9f
+view19                           $7bbf MISSING
+view22                           $7bd9 -> $39af $3d2b
+DrawTrackView                    $7be2 MISSING
+prow2                            $7bf7 -> $b48e
+DrawTrackBytes                   $7c00 MISSING
+view2                            $7d18 MISSING
+view3                            $7d23 MISSING
+view5                            $7d37 -> $35a9
+view6                            $7d4c MISSING
+byte1                            $7d56 -> $352f
+byte2                            $7e00 -> $338c
+DrawTrackLine                    $7ef3 -> $3219
+prow1                            $7f02 -> $3228
+view7                            $7f18 MISSING
+view8                            $7f23 MISSING
+view10                           $7f31 MISSING
+view12                           $7f51 MISSING
+view13                           $7f67 MISSING
+view14                           $7f7c MISSING
+view16                           $7f8a MISSING
+view17                           $7f9a MISSING
+DrawCarInMirror                  $7fb6 MISSING
+mirr1                            $7fcd MISSING
+mirr2                            $7fdf MISSING
+mirr3                            $7ff8 MISSING
