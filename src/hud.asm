@@ -58,6 +58,7 @@ DrawGlyph:
         ret
 
 hudCovered:     db 0                    ; non-zero: a notice covers the HUD
+shownSpeed:     db $FF                  ; the speed in the HUD ($FF: none)
 noticeStart:    db 0                    ; frameCounter when it was shown
 
 ; ClearHud: clear HUD rows 0-1 (8 pixel lines of 64 bytes)
@@ -135,6 +136,8 @@ NoticeTick:
 RedrawHud:
         xor a
         ld (hudCovered), a
+        dec a
+        ld (shownSpeed), a              ; (PrintSpeed prints it again)
         call ClearHud
         ld a, (raceStarted)
         or a
@@ -304,6 +307,8 @@ PrintFirstLine:
         ld c, 0
         jr PrintLine
 PrintSecondLine:
+        ld a, $FF                       ; (PrintSpeed prints the speed and
+        ld (shownSpeed), a              ; MPH again)
         ld a, c
         ld c, 1
 PrintLine:
@@ -345,7 +350,7 @@ token40:        db "Lap Time            Best        ", 0
 token41:        db "   Less than one minute to go   ", 0
 token42:        db "        YOUR TIME IS UP!        ", 0
 token43:        db "Pos.      In front:             ", 0
-token44:        db "Laps:       Behind:             ", 0
+token44:        db "L:          Behind:             ", 0
 token45:        db "                                ", 0
 token48:        db "          PLEASE WAIT           ", 0
 token53:        db "            FINISHED            ", 0
@@ -390,7 +395,7 @@ PrintPosition:
         ld bc, 5 * 256 + 0
         jp PrintBCD
 PrintLapsToGo:
-        ld bc, 5 * 256 + 1
+        ld bc, 2 * 256 + 1
         jp PrintBCD
 
 ; PrintFinished: FINISHED in place of the laps to go (row 1)
@@ -398,7 +403,8 @@ PrintFinished:
         ld hl, finishedText
         ld bc, 0 * 256 + 1
         jp PrintText
-finishedText:   db "FINISHED", 0
+finishedText:   db "FINISHED   ", 0          ; (and no speed)
+mphText:        db "MPH", 0
 
 ; PrintNearestDriver: name of the driver at position C on the first line
 ; (A = $20) or the second line (A = $29)
@@ -487,6 +493,7 @@ PrintGearNumber:
 ; UpdateDashboard: rev counter hand (as the BBC: revCount clamped to 30-170,
 ; 0.75 * revCount on a 152-step dial with 76 at the bottom)
 UpdateDashboard:
+        call PrintSpeed
         ld a, (revCount)
         cp 30
         jr nc, @u1
@@ -1233,6 +1240,8 @@ InitDrivingScreen:
         xor a                           ; the HUD is not covered, no lights
         ld (hudCovered), a
         ld (lightsShown), a
+        dec a
+        ld (shownSpeed), a              ; (PrintSpeed prints it again)
         xor a                           ; the view on the screen is clear sky,
         ld (skyClean), a                ; the buffer has to be rebuilt
         ld a, VIEW_ROWS

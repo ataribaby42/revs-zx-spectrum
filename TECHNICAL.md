@@ -362,7 +362,18 @@ crash).
 The two HUD rows use the ROM font. They show:
 
 * timers in practice and qualifying;
-* the position, the laps and the nearest drivers in a race.
+* the position, the laps and the nearest drivers in a race;
+* the player's speed in mph, right-aligned in three columns of row 1 and
+  followed by MPH: `146MPH` on the left in practice and qualifying,
+  `L: 5 125MPH Behind: ...` in a race (the laps to go after `L:`).
+  `PrintSpeed` prints it when it changes, never over the time warnings or
+  FINISHED. mph = `playerSpeed` × 1.3125 (1 + 1/4 + 1/16), measured in the
+  emulator: the car moves 2 units per iteration per unit of speed, an
+  iteration is 0.13 s, and the centre line of Silverstone is 124,289 units,
+  so with its 2.932 miles a unit is 3.80 cm (the track is then 1.21 × 1.71 km
+  and 13.3 m wide: real proportions) and a unit of speed 1.307 mph. The
+  car's top speed in fifth gear, about 110 units, is 144 mph (the Ralt RT3
+  Toyota: about 150 mph).
 
 Notices cover both rows: the sound, mirrors and joystick notices for half a
 second, PAUSED and CRASHED for as long as they last. Afterwards `RedrawHud`
@@ -471,6 +482,9 @@ physics and AI code, except three groups:
   step division (`Div16by8`) against exact division.
 * `test_needle.py` compares the rev counter needle at all 152 dial positions
   with golden data.
+* `test_speed.py` reads the HUD rows back from the screen: the speed in
+  practice, qualifying and the race, and never over the time warnings,
+  FINISHED or a notice.
 * `test_compose.py`, `test_raster.py` and `test_needle.py` (and
   `test_cars.py` for `MoveCars` and `ProcessOvertaking`) also hold the
   routines to a time budget (T-states without contention), so a later change
@@ -579,8 +593,8 @@ The 48K is nearly full. What remains:
 
 | Area | Free |
 | --- | --- |
-| cold code | 14 bytes |
-| hot code | 55 bytes |
+| cold code | 233 bytes |
+| hot code | 55 bytes, plus 113 bytes of alignment padding before `COMPOSE_PAGE` |
 | second hot area | 34 bytes |
 | UI overlay | 80 bytes |
 | largest track code | 2 bytes |
@@ -616,7 +630,7 @@ everything else.
 * The menus.
 
 **New in this version:** J switches between the Sinclair and Kempston
-joysticks.
+joysticks, and the HUD shows the player's speed.
 
 **Not ported, because the Spectrum has no counterpart:**
 

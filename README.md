@@ -34,6 +34,8 @@ with the whole field in view.
   * a rev counter;
   * animated tyres;
   * starting lights.
+* The HUD: lap times in practice and qualifying, the position and the
+  nearest drivers in a race, and the speed in mph.
 * Beeper sound: the engine, squealing tyres, impacts, gear changes and the
   starter.
 * Keyboard, Sinclair joystick 1 or Kempston joystick.

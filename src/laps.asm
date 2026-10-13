@@ -397,3 +397,87 @@ UpdatePositionInfo:
         ld hl, updateDriverInfo
         srl (hl)
         ret
+
+; ---------------------------------------------------------------------------
+; PrintSpeed: the player's speed in mph, right-aligned in three columns of
+; HUD row 1 and followed by MPH: columns 0-5 in practice and qualifying, 5-10
+; in the race (after the laps to go). mph = playerSpeed (8.8) * 1.3125 (1 +
+; 1/4 + 1/16): the car moves 2 units per iteration per unit of speed, an
+; iteration is 0.13 s, and Silverstone is 124,289 units for 2.932 miles; at
+; most 254. Printed only when it changes, and not over the time warnings or
+; FINISHED. MPH is printed after RedrawHud, InitDrivingScreen or
+; PrintSecondLine (they set shownSpeed to $FF).
+
+PrintSpeed:
+        ld a, (playerSpeedLo)
+        ld l, a
+        ld a, (playerSpeedHi)
+        ld h, a                         ; HL = speed (8.8)
+        ld d, h
+        ld e, l
+        ld b, 2
+@m1:
+        srl d                           ; + speed / 4, / 16
+        rr e
+        srl d
+        rr e
+        add hl, de
+        jr c, @m2
+        djnz @m1
+        ld a, h
+        cp 255
+        jr c, @m3
+@m2:
+        ld a, 254                       ; (255: no speed shown)
+@m3:
+        ld hl, shownSpeed
+        cp (hl)
+        ret z
+        ld e, a                         ; E = mph
+        ld bc, 0 * 256 + 1              ; column 0 of row 1
+        ld a, (raceStarted)
+        rla
+        jr nc, @s1
+        ld a, (leaveTrackTimer)         ; the race: not after FINISHED
+        ld b, 5
+        jr @s2
+@s1:
+        ld a, (qualifyTimeEnding)       ; not over the time warnings
+        and $C0
+@s2:
+        or a
+        ret nz
+        ld a, (hl)
+        inc a                           ; Z: the row was printed again
+        ld (hl), e
+        push af
+        ld a, e
+        ld de, 100 * 256 + ' '          ; D = place value, E = leading zero
+        call @digit
+        ld d, 10
+        call @digit
+        ld de, 1 * 256 + '0'
+        call @digit
+        pop af
+        ret nz
+        ld hl, mphText
+        jp PrintText
+@digit:                                 ; A = value
+        ld h, '0' - 1
+@d1:
+        inc h
+        sub d
+        jr nc, @d1
+        add a, d
+        ld l, a                         ; L = the rest
+        ld a, h
+        cp '0'
+        jr nz, @d2
+        ld a, e                         ; a leading zero
+        jr @d3
+@d2:
+        ld e, '0'                       ; zeros after a digit are digits
+@d3:
+        call PrintChar                  ; (advances B, preserves C, DE, HL)
+        ld a, l
+        ret
