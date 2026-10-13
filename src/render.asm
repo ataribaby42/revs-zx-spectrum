@@ -49,12 +49,73 @@ BuildEdges:
         ENDR
         djnz @f1
         ld sp, (beSP)
-        ; how an edge whose last part is flat or rising continues down when
-        ; that part ends on the screen (RasterTail): on the track (the last
-        ; points of the two verges lie on opposite sides of the camera, 90
-        ; degrees or more apart) both at the screen side of their verge; off
-        ; the track only the farther verge (the higher last point), if that
-        ; point is in front of the camera; the nearer one ends (grass below)
+        ld a, $FF                       ; the tail modes of this frame are not
+        ld (tailModes), a               ; known yet (RasterTail: TailModes)
+        ; right inner edge (with colours)
+        ld a, (horizonListIndex)
+        ld b, a
+        ld a, (segmentListRight)
+        ld c, a
+        ld hl, EDGE_RIN
+        ld de, EDGE_COLR
+        xor a
+        call RasterEdge
+        ld hl, EDGE_RIN + HIDDEN_LINES
+        ld de, EDGE_ROUT + HIDDEN_LINES
+        call CopyEdge
+        ld a, (horizonListIndex)        ; right outer edge
+        cp 9
+        jr nc, @r1
+        ld a, 9
+@r1:
+        ld b, a
+        ld a, (segmentListRight)
+        ld c, a
+        ld hl, EDGE_ROUT
+        ld de, 0
+        ld a, 16
+        call RasterEdge
+        ; left inner edge
+        ld a, (horizonListIndex)
+        add a, 40
+        ld b, a
+        ld a, (segmentListPointer)
+        ld c, a
+        ld hl, EDGE_LIN
+        ld de, EDGE_COLL
+        xor a
+        call RasterEdge
+        ld hl, EDGE_LIN + HIDDEN_LINES
+        ld de, EDGE_LOUT + HIDDEN_LINES
+        call CopyEdge
+        ld a, (horizonListIndex)        ; left outer edge
+        add a, 40
+        cp 49
+        jr nc, @l1
+        ld a, 49
+@l1:
+        ld b, a
+        ld a, (segmentListPointer)
+        ld c, a
+        ld hl, EDGE_LOUT
+        ld de, 0
+        ld a, 16
+        jp RasterEdge
+
+
+beSP:           dw 0
+
+; TailModes: how an edge whose last part is flat or rising continues down
+; (RasterTail, which calls this for the first such edge of a frame):
+; tailModes = right, left. On the track (the last points of the two verges
+; lie on opposite sides of the camera, 90 degrees or more apart) both at the
+; screen side of their verge (+ TAIL_TRACK); off the track only the farther
+; verge (the higher last point), if that point is in front of the camera;
+; the nearer one ends (grass below). BuildEdges sets tailModes to $FF (not
+; known yet). Preserves BC, HL.
+TailModes:
+        push bc
+        push hl
         ld a, (segmentListRight)
         dec a
         ld l, a
@@ -96,68 +157,16 @@ BuildEdges:
         ld hl, 0
 @t3:
         ld (tailModes), hl
-        ld a, l
-        ld (tailMode), a
-        ; right inner edge (with colours)
-        ld a, (horizonListIndex)
-        ld b, a
-        ld a, (segmentListRight)
-        ld c, a
-        ld hl, EDGE_RIN
-        ld de, EDGE_COLR
-        xor a
-        call RasterEdge
-        ld hl, EDGE_RIN
-        ld de, EDGE_ROUT
-        call Copy80
-        ld a, (horizonListIndex)        ; right outer edge
-        cp 9
-        jr nc, @r1
-        ld a, 9
-@r1:
-        ld b, a
-        ld a, (segmentListRight)
-        ld c, a
-        ld hl, EDGE_ROUT
-        ld de, 0
-        ld a, 16
-        call RasterEdge
-        ; left inner edge
-        ld a, (tailModes + 1)
-        ld (tailMode), a
-        ld a, (horizonListIndex)
-        add a, 40
-        ld b, a
-        ld a, (segmentListPointer)
-        ld c, a
-        ld hl, EDGE_LIN
-        ld de, EDGE_COLL
-        xor a
-        call RasterEdge
-        ld hl, EDGE_LIN
-        ld de, EDGE_LOUT
-        call Copy80
-        ld a, (horizonListIndex)        ; left outer edge
-        add a, 40
-        cp 49
-        jr nc, @l1
-        ld a, 49
-@l1:
-        ld b, a
-        ld a, (segmentListPointer)
-        ld c, a
-        ld hl, EDGE_LOUT
-        ld de, 0
-        ld a, 16
-        jp RasterEdge
+        pop hl
+        pop bc
+        ret
 
+tailModes:      dw 0                    ; RasterTail's tail mode: right, left
 
-beSP:           dw 0
-tailModes:      dw 0                    ; RasterTail's tailMode: right, left
-
-; Copy80: 80 bytes from HL to DE (unrolled LDI)
-Copy80:
-        REPT 80
+; CopyEdge: an edge table from HL to DE, the lines from HIDDEN_LINES up
+; (the lines below are behind the cockpit: never drawn nor read)
+CopyEdge:
+        REPT VIEW_ROWS - HIDDEN_LINES
         ldi
         ENDR
         ret

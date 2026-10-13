@@ -607,7 +607,7 @@ The 48K is nearly full. What remains:
 | Area | Free |
 | --- | --- |
 | cold code | 233 bytes |
-| hot code | 55 bytes, plus 9 bytes of alignment padding before `COMPOSE_PAGE` |
+| hot code | 55 bytes, plus 13 bytes of alignment padding before `COMPOSE_PAGE` |
 | second hot area | 34 bytes |
 | UI overlay | 80 bytes |
 | largest track code | 2 bytes |

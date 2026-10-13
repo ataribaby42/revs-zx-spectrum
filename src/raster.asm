@@ -13,9 +13,8 @@ rsTabLo:        db 0            ; edge table address
 rsTabHi:        db 0
 rsLastF:        db 0            ; 1: last segment, extend to line 0
 rsCount:        db 0
-tailMode:       db 0                    ; RasterTail: 0 none, TAIL_LEFT: at x = 0,
-                                        ; TAIL_RIGHT: at x = 255, + TAIL_TRACK:
-                                        ; the camera is on the track
+; tail modes (TailModes): 0 none, TAIL_LEFT: at x = 0, TAIL_RIGHT: at x = 255,
+; + TAIL_TRACK: the camera is on the track
 TAIL_LEFT       EQU 1
 TAIL_RIGHT      EQU 2
 TAIL_TRACK      EQU $80
@@ -78,8 +77,8 @@ RasterEdge:
 ; is beside or behind the camera): at the screen border on its side, or with
 ; the camera on the track at the screen side of its verge (a point behind the
 ; camera can lie on the other side). When it is on the screen (the verge runs
-; across the view): as tailMode says (set by BuildEdges): at the screen side
-; of its verge, or not at all. Lines below HIDDEN_LINES (behind the cockpit)
+; across the view): as its tail mode says (TailModes): at the screen side of
+; its verge, or not at all. Lines below HIDDEN_LINES (behind the cockpit)
 ; are never rasterised.
 RasterTail:
         ld a, (p0y)
@@ -103,11 +102,19 @@ RasterTail:
         ret z                           ; nothing above the hidden lines
         ret c
         ld c, a                         ; C = lines HIDDEN_LINES .. to fill
-        ld a, (tailMode)
+        ld a, (tailModes)
+        inc a
+        call z, TailModes               ; (the first such edge of this frame)
+        ld a, (reEnd)                   ; E = the tail mode of this verge: the
+        cp 40                           ; right one (verge entries below 40)
+        ld a, (tailModes)               ; or the left one
+        jr c, @tm
+        ld a, (tailModes + 1)
+@tm:
         ld e, a
         ld a, h
         or a
-        jr z, @t2m                      ; on the screen: as tailMode says
+        jr z, @t2m                      ; on the screen: as the mode says
         bit 7, e
         jr nz, @t2s                     ; on the track: the side of its verge
         ld l, 0                         ; off: the border it is beyond

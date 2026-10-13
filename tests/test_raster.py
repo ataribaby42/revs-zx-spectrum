@@ -22,7 +22,7 @@ from skoolkit.simutils import A, C, D, E, H, L  # noqa: E402
 import zx_scene  # noqa: E402
 
 GOLDEN = Path(__file__).resolve().parent / 'raster_golden.json'
-BUDGET = 69_500                         # average T-states of BuildEdges (no contention)
+BUDGET = 69_100                         # average T-states of BuildEdges (no contention)
 HIDDEN = Z80().sym('HIDDEN_LINES')
 
 
