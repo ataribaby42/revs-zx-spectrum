@@ -153,8 +153,10 @@ The grass contacts that the original physics reads from screen memory are
 taken from the edge tables at the corresponding row/x positions, exactly as
 Compose draws that row (CheckSurfaces; `tests/test_surfaces.py` compares it
 with the drawn pixels). The C64 drawing routine (DrawTrackView) is created at
-run time and is not in the tape image, so the C64 screen bytes themselves
-cannot be compared.
+run time and is not in the tape image; `tests/test_trackview.py` applies its
+rule (read from the template it is generated from, $3937) to the dash data
+and background colours that the C64's DrawTrack and SetBackground produce,
+and compares the colours of the track view with the Spectrum's.
 
 ## Simulation
 

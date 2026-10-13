@@ -243,9 +243,14 @@ choice of what is visible are the original's.
    stepped one track line at a time, and its x position is stored per line,
    so nearer segments overwrite farther ones and hide the track behind
    crests. The colour tables are filled with `PUSH`. Line-step code is
-   patched only when it changes. A segment whose last part is flat or rising
-   is extended to the bottom of the view (`RasterTail`). Lines hidden behind
-   the cockpit are not rasterised at all.
+   patched only when it changes. A descending last segment is extended to
+   the bottom of the view along its slope; a flat or rising one straight
+   down (`RasterTail`): at the screen border when its lower end is off the
+   screen (the nearest verge point beside or behind the camera), and when the
+   verge ends inside the view (the car across the track) at the screen side
+   of its verge if the camera is on the track, otherwise only for the farther
+   verge (grass below the nearer one, as on the C64). Lines hidden behind the
+   cockpit are not rasterised at all.
 4. **Compose** (`compose.asm`). Each track line becomes one 32-byte row of
    the view buffer: grass | verge | road | verge | grass, or sky. Whole bytes
    are written by jumping into an unrolled chain of `ld (hl),b / inc l` that
@@ -482,6 +487,14 @@ physics and AI code, except three groups:
   step division (`Div16by8`) against exact division.
 * `test_needle.py` compares the rev counter needle at all 152 dial positions
   with golden data.
+* `test_trackview.py` compares the track view with the C64's own: the C64
+  runs `GetTrackAndMarkers`, `DrawTrack` and `SetBackground`, and its
+  `DrawTrackView` (created at run time, not in the tape image) is applied by
+  its rule, read from the template it is generated from: each line starts
+  with its background colour, a non-zero dash data byte changes the colour
+  from there on. Ordinary driving must match within 1% of the points; with
+  the car across the track (on it or off it) the average and the scenes of
+  the bug reports below have limits.
 * `test_speed.py` reads the HUD rows back from the screen: the speed in
   practice, qualifying and the race, and never over the time warnings,
   FINISHED or a notice.
@@ -594,7 +607,7 @@ The 48K is nearly full. What remains:
 | Area | Free |
 | --- | --- |
 | cold code | 233 bytes |
-| hot code | 55 bytes, plus 113 bytes of alignment padding before `COMPOSE_PAGE` |
+| hot code | 55 bytes, plus 9 bytes of alignment padding before `COMPOSE_PAGE` |
 | second hot area | 34 bytes |
 | UI overlay | 80 bytes |
 | largest track code | 2 bytes |
@@ -670,6 +683,14 @@ Most of these were found by the tests.
   Novice. Found by `test_class.py`.
 * **The grass under the tyres did not always match the picture** (a side
   without road, the car sideways). Found by `test_surfaces.py`.
+* **Vertical bars and cut-off road with the car across the track.** Off the
+  track a black or white column ran down from the road; on it the road
+  below the far verge ended at a vertical edge. `RasterTail` extended the
+  last verge segment straight down from its end even when that end lay
+  inside the view or behind the camera. Compared with the C64's own track
+  drawing (`test_trackview.py`), the scenes across the track went from 4.9%
+  to 3.8% of differing points on average, and those of the reports from up
+  to 29% to at most 7%; ordinary driving is unchanged.
 * **The tyre squeal continued** in the menus and through the crash pause.
   Found by `test_sound.py`; fixed with `soundLive`.
 

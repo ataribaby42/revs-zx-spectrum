@@ -49,6 +49,55 @@ BuildEdges:
         ENDR
         djnz @f1
         ld sp, (beSP)
+        ; how an edge whose last part is flat or rising continues down when
+        ; that part ends on the screen (RasterTail): on the track (the last
+        ; points of the two verges lie on opposite sides of the camera, 90
+        ; degrees or more apart) both at the screen side of their verge; off
+        ; the track only the farther verge (the higher last point), if that
+        ; point is in front of the camera; the nearer one ends (grass below)
+        ld a, (segmentListRight)
+        dec a
+        ld l, a
+        ld h, VERGE_XHI / 256
+        ld b, (hl)                      ; B = right verge: yaw of its last point
+        ld h, VERGE_Y / 256
+        ld c, (hl)                      ; C = its line
+        ld a, (segmentListPointer)
+        dec a
+        ld l, a
+        ld e, (hl)                      ; E = left verge: line of its last point
+        ld h, VERGE_XHI / 256
+        ld d, (hl)                      ; D = its yaw
+        ld a, b
+        sub d
+        jp p, @t1
+        neg
+@t1:
+        cp 64
+        ld hl, (TAIL_LEFT + TAIL_TRACK) * 256 + TAIL_RIGHT + TAIL_TRACK
+        jr nc, @t3                      ; on the track: both
+        ld hl, TAIL_LEFT * 256 + TAIL_RIGHT
+        ld a, c                         ; off: which last point is lower
+        xor $80                         ; (signed lines)
+        ld c, a
+        ld a, e
+        xor $80
+        cp c
+        ld a, d
+        jr nc, @t2
+        ld h, 0                         ; the left verge is nearer
+        ld a, b
+        jr @t2a
+@t2:
+        ld l, 0                         ; the right verge is nearer
+@t2a:
+        add a, 64                       ; the farther one's last point
+        jp p, @t3                       ; behind the camera: no tail either
+        ld hl, 0
+@t3:
+        ld (tailModes), hl
+        ld a, l
+        ld (tailMode), a
         ; right inner edge (with colours)
         ld a, (horizonListIndex)
         ld b, a
@@ -74,6 +123,8 @@ BuildEdges:
         ld a, 16
         call RasterEdge
         ; left inner edge
+        ld a, (tailModes + 1)
+        ld (tailMode), a
         ld a, (horizonListIndex)
         add a, 40
         ld b, a
@@ -102,6 +153,7 @@ BuildEdges:
 
 
 beSP:           dw 0
+tailModes:      dw 0                    ; RasterTail's tailMode: right, left
 
 ; Copy80: 80 bytes from HL to DE (unrolled LDI)
 Copy80:

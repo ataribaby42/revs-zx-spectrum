@@ -13,6 +13,12 @@ rsTabLo:        db 0            ; edge table address
 rsTabHi:        db 0
 rsLastF:        db 0            ; 1: last segment, extend to line 0
 rsCount:        db 0
+tailMode:       db 0                    ; RasterTail: 0 none, TAIL_LEFT: at x = 0,
+                                        ; TAIL_RIGHT: at x = 255, + TAIL_TRACK:
+                                        ; the camera is on the track
+TAIL_LEFT       EQU 1
+TAIL_RIGHT      EQU 2
+TAIL_TRACK      EQU $80
 rasterSlowOnly: db 0            ; non-zero: always use RasterLoop (tests)
 
 ; RasterEdge: B = first verge index, C = end index (exclusive), A = x offset
@@ -66,10 +72,15 @@ RasterEdge:
         jr @loop
 
 ; RasterTail: after the last segment. A descending last segment has been
-; extended to the bottom by RasterSeg; otherwise (flat or rising: the nearest
-; verge point is beside or behind the camera) the edge runs straight down
-; from the lower end of the segment, so the track in front of the car is
-; drawn. Lines below HIDDEN_LINES (behind the cockpit) are never rasterised.
+; extended to the bottom by RasterSeg; otherwise (flat or rising) the edge
+; runs straight down from the lower end of the segment, so the track around
+; the car is drawn. When that end is off the screen (the nearest verge point
+; is beside or behind the camera): at the screen border on its side, or with
+; the camera on the track at the screen side of its verge (a point behind the
+; camera can lie on the other side). When it is on the screen (the verge runs
+; across the view): as tailMode says (set by BuildEdges): at the screen side
+; of its verge, or not at all. Lines below HIDDEN_LINES (behind the cockpit)
+; are never rasterised.
 RasterTail:
         ld a, (p0y)
         ld b, a
@@ -92,13 +103,30 @@ RasterTail:
         ret z                           ; nothing above the hidden lines
         ret c
         ld c, a                         ; C = lines HIDDEN_LINES .. to fill
-        ld a, h                         ; x clamped to 0..255
+        ld a, (tailMode)
+        ld e, a
+        ld a, h
         or a
-        jr z, @t3
-        ld l, 0
-        jp m, @t3
+        jr z, @t2m                      ; on the screen: as tailMode says
+        bit 7, e
+        jr nz, @t2s                     ; on the track: the side of its verge
+        ld l, 0                         ; off: the border it is beyond
+        bit 7, h
+        jr nz, @t2x
         ld l, 255
-@t3:
+        jr @t2x
+@t2m:
+        ld a, e
+        and 3
+        ret z                           ; this verge ends here
+@t2s:
+        ld a, e
+        and 3
+        dec a
+        ld l, 0
+        jr z, @t2x                      ; the left verge: x = 0
+        ld l, 255
+@t2x:
         ld a, (rsColOp + 2)
         ld b, a                         ; B = colour of the last segment
         ld a, (rsTabLo)
