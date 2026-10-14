@@ -21,6 +21,15 @@ Novice race restarts on the ground). The extra tracks' HookFirstSegment
 (a zTrackCurve value), and GetFirstSegment then clears segmentFlags,X of
 another segment instead of the front one's (an original bug, fixed with the
 user's approval): the JSR goes through a helper at $02A7 that keeps X.
+
+A car pushed off the track (PushCarOffTrack) no longer stops on its racing
+line (the user's choice): while it brakes (MoveCars, $2647) a helper at
+$0200 (the BASIC input buffer, unused by the game) moves its racing line
+towards the nearer verge by speed / 16 + 4 while it moves; below speed 32
+it skips the braking (back into MoveCars at $2641, the speed kept) until it
+is at the verge, so it always stands at the side of the track; at the verge
+or standing its carSteering is cleared (no overtaking steer off the verge).
+The Spectrum's RetiredCar does the same.
 """
 from pathlib import Path
 
@@ -32,8 +41,58 @@ PARTS = [('main_0b00.bin', (0x5300, 0x00, 0x00), 0x0b00, 0x5300),
          ('main_6400.bin', (0x9300, 0x00, 0x00), 0x6400, 0x9300),
          ('main_a000.bin', (0xcc00, 0x00, 0x00), 0xa000, 0xcc00),
          ('selector_1400.bin', (0x4c00, 0x00, 0x14), 0x1400, 0x4c00)]
+
+
+def asm6502(origin, items):
+    """Bytes of a short 6502 routine: items are byte strings, labels (str)
+    and (opcode, label) pairs for relative branches."""
+    labels, pc = {}, origin
+    for it in items:
+        if isinstance(it, str):
+            labels[it] = pc
+        else:
+            pc += 2 if isinstance(it, tuple) else len(it)
+    out, pc = bytearray(), origin
+    for it in items:
+        if isinstance(it, tuple):
+            off = labels[it[1]] - (pc + 2)
+            assert -128 <= off < 128
+            out += bytes([it[0], off & 255])
+            pc += 2
+        elif not isinstance(it, str):
+            out += it
+            pc += len(it)
+    return bytes(out)
+
+
+BCC, BCS, BEQ, BMI, BPL = 0x90, 0xb0, 0xf0, 0x30, 0x10
+RETIRED_HELPER = 0x0200
+RETIRED_CODE = asm6502(RETIRED_HELPER, [
+    # MoveCars, braking car X (JSR from $2647, which did LDA #$FE / STA U)
+    b'\xbd\x00\x01', (BPL, 'done'),                 # LDA positionNumber,X: stopped ($91)
+    b'\x4a', (BCC, 'done'),                         # LSR: and retired?
+    b'\xbd\x50\x01', (BEQ, 'stay'),                 # LDA carSpeedHi,X: stands
+    b'\x4a\x4a\x4a\x4a', b'\x18', b'\x69\x04',      # LSR x 4 / CLC / ADC #4
+    b'\x85\x74',                                    # STA T: the step
+    b'\xbd\x78\x01', (BMI, 'right'),                # LDA carRacingLine,X
+    b'\x38', b'\xe5\x74', (BCS, 'store'),           # SEC / SBC T: towards 0
+    b'\xa9\x00', (BEQ, 'store'),
+    'right', b'\x18', b'\x65\x74', (BCC, 'store'),  # CLC / ADC T: towards 255
+    b'\xa9\xff',
+    'store', b'\x9d\x78\x01',                       # STA carRacingLine,X
+    b'\x18', b'\x69\x01', b'\xc9\x02', (BCC, 'stay'),   # CLC / ADC #1 / CMP #2: at the verge
+    b'\xbd\x50\x01', b'\xc9\x20', (BCS, 'done'),    # LDA carSpeedHi,X / CMP #32: fast
+    b'\x68', b'\x68', b'\x4c\x41\x26',              # PLA / PLA / JMP $2641: keep the speed
+    'stay', b'\xa9\x00', b'\x9d\x14\x01',           # LDA #0 / STA carSteering,X: no steering
+    'done', b'\xa9\xfe', b'\x85\x75', b'\x60',      # LDA #$FE / STA U / RTS
+])
+assert RETIRED_HELPER + len(RETIRED_CODE) <= 0x0259             # (the BASIC input buffer)
 # address: (original bytes, patched bytes)
-APPROVED_PATCHES = {0x109d: (b'\x7f', b'\x00')}   # CheckForCrash: LDA #0
+APPROVED_PATCHES = {
+    0x109d: (b'\x7f', b'\x00'),                     # CheckForCrash: LDA #0
+    0x2647: (b'\xa9\xfe\x85\x75', bytes([0x20, RETIRED_HELPER & 255, RETIRED_HELPER >> 8, 0xea])),
+    RETIRED_HELPER: (bytes(len(RETIRED_CODE)), RETIRED_CODE),
+}
 # extra tracks: JSR HookFirstSegment -> JSR KEEPX_HELPER (free C64 RAM):
 # STX $02FF / JSR HookFirstSegment / LDX $02FF / RTS
 KEEPX_HELPER = 0x02a7

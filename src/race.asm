@@ -276,7 +276,9 @@ SquealTyres:
         ld a, 4
         jp MakeSound
 
-; PushCarOffTrack: car C leaves the race
+; PushCarOffTrack: car C leaves the race. It brakes to a stop at the side of
+; the track (MoveCars, RetiredCar; the original left it standing on its
+; racing line: the veer in carSteering never takes effect)
 PushCarOffTrack:
         ld a, c
         cp 20

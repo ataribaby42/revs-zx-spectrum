@@ -1,7 +1,19 @@
 """Compare race set-up, lap and timer routines with the C64 code, using the
 whole mapped game state (tests/state.py). The computer drivers' routines
 (MoveCars, ProcessOvertaking) must also stay within their time budgets
-(average T-states over the cases, no contention)."""
+(average T-states over the cases, no contention).
+
+A car pushed off the track (PushCarOffTrack) is an approved deviation that
+the C64 reference has too (tools/c64_image.py): while it brakes to a stop
+its racing line moves to the nearer verge (a slow car rolls on to it
+before braking further), where it stands for the rest of the race and is
+drawn as before (pushed_off: both machines iteration by iteration; a car
+pushed off just behind a standing one gets past it and stops at a verge
+too, two_retired). Its retirement is the original's: FinishRace does not
+wait for it and it has no race time, so it comes after every car with a
+time (retired_results). With every computer driver pushed off, nothing waits for
+them or loops (all_retired)."""
+import functools
 import random
 import sys
 from pathlib import Path
@@ -9,6 +21,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import state  # noqa: E402
 import test_physics as tp  # noqa: E402
+from c64_image import TRACKS, main_image  # noqa: E402
+from harness import track_code  # noqa: E402
 
 C64 = {'BuildRoadSign': 0x4cfb, 'ProcessContact': 0x4f72, 'CheckForCrash': 0x1053,
        'FinishRace': 0x10a5, 'BuildPlayerCar': 0x1182, 'BuildVisibleCar': 0x278f, 'MoveAndDrawCars': 0x2399, 'MoveCars': 0x25d3, 'ProcessOvertaking': 0x23f6, 'ResetVariables': 0xb317, 'PlaceCarsOnTrack': 0x0c47, 'CompareSegments': 0x2583,
@@ -22,7 +36,33 @@ ZP = {'frontSegmentIndex': 0x24, 'currentPlayer': 0x6f, 'raceStarted': 0x6c, 'ra
       'positionAhead': 0x4d, 'positionBehind': 0x5b, 'currentPosition': 0x03}
 # scratch written differently by the C64 print routines
 IGNORE = set()
-BUDGETS = {'MoveCars': 10_700, 'ProcessOvertaking': 16_250}
+BUDGETS = {'MoveCars': 10_850, 'ProcessOvertaking': 16_250}   # (MoveCars: stopped and retired cars are frequent here)
+TRACK = 'Silverstone'                   # the track of machines()
+
+
+@functools.lru_cache(maxsize=None)
+def track_image(track):
+    return bytes(main_image(track))
+
+
+def machines():
+    """Both machines with TRACK: the C64 image of the track (its data and the
+    extra tracks' patches) and on the Spectrum its data and, for the extra
+    tracks, its code (TcLoaded), as tests/test_surfaces.py."""
+    c64, z = tp.C64R(), tp.Z80()
+    if TRACK != 'Silverstone':
+        img = track_image(TRACK)
+        keep = {a: c64.mem[a] for a in list(range(0x0E50, 0x0E55)) +       # ScanKeyboard, KERNAL stubs
+                [0xFFC2, 0xFFE0, 0xFFE3, 0xFFE7, 0xFFEE, 0xFFF1, 0xFFF4, 0xFFF7]}
+        c64.mem[:] = list(img)
+        for a, v in keep.items():
+            c64.mem[a] = v
+        t = z.sym('TRACK')
+        z.mem[t:t + 0x800] = img[0x5300:0x5B00]
+        code = track_code(TRACK)
+        z.mem[z.sym('TRACKCODE'):z.sym('TRACKCODE') + len(code)] = code
+        z.call('TcLoaded')
+    return c64, z
 
 
 def bcd(rng, hi=99):
@@ -82,7 +122,7 @@ def stub_printing(c64):
     c64.mem[0x3d60] = 0x60          # DrawFence: only playerMoving = 0 (LDA #0, STA $90)
 
 
-def run(name, n=200, seed=11, prep=None, args=None, ignore=()):
+def run(name, n=200, seed=11, prep=None, args=None, ignore=(), budget=True):
     rng = random.Random(seed)
     c64, z = tp.C64R(), tp.Z80()
     stub_printing(c64)
@@ -111,7 +151,7 @@ def run(name, n=200, seed=11, prep=None, args=None, ignore=()):
             fails += 1
             if fails <= 3:
                 print(f'{name} case {i} {kw}\n  ' + '\n  '.join(errs[:12]))
-    if name in BUDGETS:
+    if name in BUDGETS and budget:
         avg = total_t / n
         print(f'{name}: {fails}/{n}, average {avg:.0f} T (budget {BUDGETS[name]})')
         return fails + (avg > BUDGETS[name])
@@ -160,6 +200,7 @@ def close_cars(c64, z, rng):
 # scratch bytes that the C64 projection and vector routines use, but the Z80
 # versions keep elsewhere (own temporaries, vecX/Y/Z)
 PROJ_SCRATCH = {f'zp{a:02x}' for a in list(range(0x70, 0x78)) + list(range(0x80, 0x90))}
+TRACK_XY = {'zp1b', 'zp45'}             # the extra tracks' C64 track code keeps Y and X there
 
 
 def view_cars(c64, z, rng):
@@ -190,6 +231,152 @@ def contact(c64, z, rng):
     state.put(c64, z, state.find('zp67'), [rng.randrange(24)])                  # collisionDriver
 
 
+def retired_cars(c64, z, rng):
+    """Cars pushed off the track ($91) among the others, at any speed and
+    racing line, in a race."""
+    valid_objects(c64, z, rng)
+    status = list(c64.mem[0x0100:0x0114])
+    for k in rng.sample(range(20), 6):
+        status[k] = 0x91
+    setv(c64, z, 'carStatus', status)
+    setzp(c64, z, 'raceStarting', 0)
+
+
+def pushed_off(seed):
+    """A car pushed off the track at racing speed or slowly (a slow car rolls
+    on to the verge before it stops), from any racing line or the middle of
+    the track, the player 100 segments away (even seeds) or 10: MoveCars on
+    both machines, the whole state compared after every iteration. The
+    racing line must move steadily to the nearer verge and the car stop
+    there; with the player close behind it, BuildVisibleCar shows it exactly
+    when it would show a racing car there. Returns the problems found."""
+    rng = random.Random(seed)
+    c64, z = machines()
+    stub_printing(c64)
+    plausible(c64, z, rng)
+    valid_objects(c64, z, rng)
+    setzp(c64, z, 'raceStarted', 0x80)
+    setzp(c64, z, 'raceStarting', 0)
+    setv(c64, z, 'carStatus', [0] * 20)
+    player = c64.mem[0x6f]
+    car = rng.choice([k for k in range(20) if k != player])
+    line = [rng.randrange(256), 128, 127][seed % 3]
+    tl = z.mem[z.sym('trackLength')] + 256 * z.mem[z.sym('trackLength') + 1]
+    lo, hi = list(c64.mem[0x08d0:0x08e8]), list(c64.mem[0x08e8:0x0900])
+    seg = lo[car] | hi[car] << 8
+
+    def put_seg(k, v):
+        v %= tl
+        lo[k], hi[k] = v & 255, v >> 8
+        setv(c64, z, 'objectSegmentLo', lo)
+        setv(c64, z, 'objectSegmentHi', hi)
+    put_seg(player, seg + (100 if seed % 2 == 0 else 10))
+    speeds = list(c64.mem[0x0150:0x0164])
+    speeds[car] = [180, 10, 120, 31, 60, 1, 90, 33, 45, 200][seed % 10]
+    setv(c64, z, 'carSpeedHi', speeds)
+    lines = list(c64.mem[0x0178:0x018c])
+    lines[car] = line
+    setv(c64, z, 'carRacingLine', lines)
+    rnd = [rng.randrange(256) for _ in range(1500)]
+    c64.rand = list(rnd)
+    tp.patch_z80_random(z, rnd + [0] * 500)
+    problems = []
+    c64.call(0x10ed, x=car)                                 # PushCarOffTrack
+    z.call('PushCarOffTrack', c=car)
+    trace = [line]
+    for i in range(80):
+        c64.call(C64['MoveCars'], limit=50_000_000)
+        z.call('MoveCars', limit=2_000_000_000)
+        errs = state.diff(c64, z, ENTRIES, ignore=IGNORE)
+        if errs:
+            return [f'iteration {i}: ' + '; '.join(errs[:4])]
+        trace.append(c64.mem[0x0178 + car])
+    verge = 0 if line < 128 else 255
+    steps = [b - a for a, b in zip(trace, trace[1:])]
+    if any(d * (1 if verge else -1) < 0 for d in steps) or trace[-1] != verge:
+        problems.append(f'racing line {trace[:6]} ... {trace[-1]}, verge {verge}')
+    if c64.mem[0x0150 + car] != 0:
+        problems.append(f'speed {c64.mem[0x0150 + car]} after 80 iterations')
+    if c64.mem[0x0100 + car] != 0x91:
+        problems.append(f'status ${c64.mem[0x0100 + car]:02X}')
+    seg = c64.mem[0x08d0 + car] | c64.mem[0x08e8 + car] << 8
+    put_seg(player, seg - 5)                                # close behind it
+    put_seg(23, seg - 5)
+    state.put(c64, z, state.find('zp25'), [0])              # directionFacing
+    pos = list(c64.mem[0x013c:0x0150]).index(car)
+    # the player's coordinates do not match his segment here: the working
+    # values of the car's vector (vectorNumber, prevBlockNumber, xCoord2 and
+    # yCoord2 after the segment list at $09FD) may differ, the results not
+    view = [(n, ca, zs, off, 253 if n == 'segLo' else cnt) for n, ca, zs, off, cnt in ENTRIES]
+    shown = []
+    for status, objst in ((0x91, 0xC0), (0, 0x80)):         # retired, then racing
+        setv(c64, z, 'carStatus', [status if k == car else 0 for k in range(20)])
+        setv(c64, z, 'objectStatus', [objst if k == car else v for k, v in enumerate(c64.mem[0x018c:0x01a4])])
+        c64.call(C64['BuildVisibleCar'], x=pos, limit=50_000_000)
+        z.call('BuildVisibleCar', c=pos, limit=2_000_000_000)
+        errs = state.diff(c64, z, view, ignore=IGNORE | PROJ_SCRATCH | {'zp0c', 'zp7c'})
+        if errs:
+            problems.append('BuildVisibleCar: ' + '; '.join(errs[:4]))
+        shown.append(not c64.mem[0x018c + car] & 0x80)
+    if shown[0] != shown[1]:
+        problems.append(f'shown {shown[0]}, a racing car there {shown[1]}')
+    return problems
+
+
+def two_retired(seed):
+    """Two cars pushed off the track close together: A stands at a verge, B
+    is 1-4 segments behind it in the race order, on the same side, at any
+    speed. ProcessOvertaking steers B away from A to get past it; MoveCars
+    and ProcessOvertaking alternate on both machines (the state compared).
+    In the end A still stands at its verge and B stands at a verge too.
+    Returns the problems found."""
+    rng = random.Random(300 + seed)
+    c64, z = machines()
+    stub_printing(c64)
+    plausible(c64, z, rng)
+    valid_objects(c64, z, rng)
+    setzp(c64, z, 'raceStarted', 0x80)
+    setzp(c64, z, 'raceStarting', 0)
+    player = c64.mem[0x6f]
+    order = list(c64.mem[0x013c:0x0150])
+    pa = rng.choice([p for p in range(19) if player not in order[p:p + 2]])
+    a, b = order[pa], order[pa + 1]
+    tl = z.mem[z.sym('trackLength')] + 256 * z.mem[z.sym('trackLength') + 1]
+    lo, hi = list(c64.mem[0x08d0:0x08e8]), list(c64.mem[0x08e8:0x0900])
+    seg = lo[a] | hi[a] << 8
+    for k, v in ((b, seg - rng.randrange(1, 5)), (player, seg + 120)):    # (the player far away)
+        v %= tl
+        lo[k], hi[k] = v & 255, v >> 8
+    setv(c64, z, 'objectSegmentLo', lo)
+    setv(c64, z, 'objectSegmentHi', hi)
+    verge = rng.choice([0, 255])
+    lines = list(c64.mem[0x0178:0x018c])
+    lines[a] = verge
+    lines[b] = rng.choice([verge ^ 0x40, verge ^ 0x10, 128 if verge else 127])
+    setv(c64, z, 'carRacingLine', lines)
+    speeds = list(c64.mem[0x0150:0x0164])
+    speeds[a] = 0
+    speeds[b] = [60, 31, 20, 100, 45, 10][seed % 6]
+    setv(c64, z, 'carSpeedHi', speeds)
+    setv(c64, z, 'carStatus', [0x91 if k in (a, b) else 0 for k in range(20)])
+    setv(c64, z, 'carSteering', [0] * 20)                   # (ProcessOvertaking clears it)
+    setv(c64, z, 'objectStatus', [0x40 if k in (a, b) else v & 0x3F for k, v in enumerate(c64.mem[0x018c:0x01a4])])
+    rnd = [rng.randrange(256) for _ in range(1500)]
+    c64.rand = list(rnd)
+    tp.patch_z80_random(z, rnd + [0] * 500)
+    for i in range(150):
+        for name, addr in (('MoveCars', C64['MoveCars']), ('ProcessOvertaking', 0x23f6)):
+            c64.call(addr, limit=50_000_000)
+            z.call(name, limit=200_000_000)
+            errs = state.diff(c64, z, ENTRIES, ignore=IGNORE)
+            if errs:
+                return [f'iteration {i}, {name}: ' + '; '.join(errs[:4])]
+    sa, la, sb, lb = (c64.mem[0x0150 + a], c64.mem[0x0178 + a], c64.mem[0x0150 + b], c64.mem[0x0178 + b])
+    if sa or la != verge or sb or lb not in (0, 255):
+        return [f'A speed {sa} line {la} (verge {verge}), B speed {sb} line {lb}']
+    return []
+
+
 def finishing(c64, z, rng):
     """A consistent grid (ResetVariables on both machines), cars about to
     finish the race or qualifying nearly over."""
@@ -210,6 +397,105 @@ def finishing(c64, z, rng):
     c64.mem[0x87f4] = 0                                                         # configStop
 
 
+def retired_results(seed):
+    """The end of a race with two cars pushed off the track that never reach
+    the line: FinishRace must not wait for them, and sorted by race time
+    (SortDrivers) they come after every car with a time and have none
+    themselves. Both machines, compared. Returns the problems found."""
+    rng = random.Random(100 + seed)
+    c64, z = machines()
+    stub_printing(c64)
+    finishing(c64, z, rng)
+    setzp(c64, z, 'raceStarted', 0x80)
+    out = rng.sample(range(19), 2)
+    status = list(c64.mem[0x0100:0x0114])
+    minutes = list(c64.mem[0x86dc:0x86f0])
+    objst = list(c64.mem[0x018c:0x01a4])
+    speeds = list(c64.mem[0x0150:0x0164])
+    laps = [1] * 20                                         # the others have finished
+    for k in out:
+        status[k], minutes[k], objst[k], speeds[k], laps[k] = 0x91, 0xC0, 0xC0, 0, 0
+    for name, v in (('carStatus', status), ('totalRaceMinutes', minutes), ('objectStatus', objst),
+                    ('carSpeedHi', speeds), ('driverLapNumber', laps)):
+        setv(c64, z, name, v)
+    c64.call(C64['FinishRace'], limit=50_000_000)
+    z.call('FinishRace', limit=2_000_000_000)
+    scratch = IGNORE | PROJ_SCRATCH | TRACK_XY              # (as the FinishRace test)
+    problems = ['FinishRace: ' + '; '.join(e[:4]) for e in [state.diff(c64, z, ENTRIES, ignore=scratch)] if e]
+    c64.call(0x0f0e, a=0x80, limit=50_000_000)              # SortDrivers by race time
+    z.call('SortDrivers', a=0x80, limit=2_000_000_000)
+    problems += ['SortDrivers: ' + '; '.join(e[:4]) for e in [state.diff(c64, z, ENTRIES, ignore=scratch)] if e]
+    order = list(c64.mem[0x013c:0x0150])
+    timed = [d for d in range(20) if c64.mem[0x86dc + d] < 0x80]
+    for k in out:
+        if c64.mem[0x86dc + k] != 0xC0 or any(order.index(k) < order.index(d) for d in timed):
+            problems.append(f'car {k}: race minutes ${c64.mem[0x86dc + k]:02X}, position {order.index(k) + 1}')
+    return problems
+
+
+def all_retired(seed):
+    """Every computer driver pushed off the track during a race, close to
+    the player (even seeds) or anywhere on the track (odd seeds): 60
+    iterations of MoveCars, ProcessOvertaking, HideAllCars, BuildVisibleCar
+    (each position) and SetPlayerPositions on both machines, the state
+    compared after each (every call must return); every car that was moving
+    stands at a verge, even close to others (ProcessOvertaking's steer must
+    not move it off). Then FinishRace (it must not wait for them) and
+    SortDrivers by race time: every computer driver without a time. Returns
+    the problems found."""
+    rng = random.Random(200 + seed)
+    c64, z = machines()
+    stub_printing(c64)
+    plausible(c64, z, rng)
+    view_cars(c64, z, rng)
+    if seed % 2:
+        near_segments(c64, z, rng)                          # spread round the track
+    setzp(c64, z, 'raceStarted', 0x80)
+    setzp(c64, z, 'raceStarting', 0)
+    setzp(c64, z, 'numberOfLaps', 5)
+    setv(c64, z, 'driverLapNumber', [rng.randrange(1, 5) for _ in range(20)])
+    setv(c64, z, 'carStatus', [rng.choice([0, 0x40, 0x80]) for _ in range(20)])
+    rnd = [rng.randrange(256) for _ in range(1500)]
+    c64.rand = list(rnd)
+    tp.patch_z80_random(z, rnd + [0] * 500)
+    player = c64.mem[0x6f]
+    scratch = IGNORE | PROJ_SCRATCH
+    moved = [k for k in range(20) if k != player and c64.mem[0x0150 + k]]
+    for k in range(20):
+        if k != player:
+            c64.call(0x10ed, x=k)                           # PushCarOffTrack
+            z.call('PushCarOffTrack', c=k)
+    calls = [('MoveCars', 0x25d3, {}), ('ProcessOvertaking', 0x23f6, {}), ('HideAllCars', None, {})]
+    calls += [('BuildVisibleCar', 0x278f, {'x': p}) for p in range(20)]
+    calls += [('SetPlayerPositions', 0x67d4, {})]
+    for i in range(60):
+        for name, addr, kw in calls:
+            if addr is None:
+                c64.mem[0x018c:0x01a3] = [v | 0x80 for v in c64.mem[0x018c:0x01a3]]   # (HideAllCars)
+            else:
+                c64.call(addr, limit=50_000_000, **kw)
+            z.call(name, limit=200_000_000, **({'c': kw['x']} if kw else {}))
+            errs = state.diff(c64, z, ENTRIES, ignore=scratch)
+            if errs:
+                return [f'iteration {i}, {name}: ' + '; '.join(errs[:4])]
+    moving = [k for k in range(20) if k != player and c64.mem[0x0150 + k]]
+    if moving:
+        return [f'computer drivers still moving: {moving}']
+    off = [(k, c64.mem[0x0178 + k]) for k in moved if c64.mem[0x0178 + k] not in (0, 255)]
+    if off:                                                 # (one pushed standing stays on its line)
+        return [f'standing off the verge (car, racing line): {off}']
+    setv(c64, z, 'driverLapNumber', [6] * 20)                # the race is over for the player
+    c64.call(C64['FinishRace'], limit=50_000_000)
+    z.call('FinishRace', limit=200_000_000)
+    c64.call(0x0f0e, a=0x80, limit=50_000_000)              # SortDrivers by race time
+    z.call('SortDrivers', a=0x80, limit=200_000_000)
+    problems = ['FinishRace, SortDrivers: ' + '; '.join(e[:4]) for e in [state.diff(c64, z, ENTRIES, ignore=scratch)] if e]
+    timed = [k for k in range(20) if k != player and c64.mem[0x86dc + k] < 0x80]
+    if timed:
+        problems.append(f'computer drivers with a race time: {timed}')
+    return problems
+
+
 if __name__ == '__main__':
     total = 0
     if len(sys.argv) > 1:
@@ -224,6 +510,17 @@ if __name__ == '__main__':
         n = 10 if only == 'FinishRace' else 300
         sys.exit(1 if run(only, n=n, prep=prep, args=args, ignore=PROJ_SCRATCH) else 0)
     total += run('MoveCars', n=300, prep=valid_objects)
+    total += run('MoveCars', n=300, prep=retired_cars, budget=False)     # (many retired cars)
+    scenarios = [('pushed off the track', pushed_off, 10), ('two cars pushed off close together', two_retired, 12),
+                 ('race results with cars pushed off', retired_results, 6),
+                 ('every computer driver pushed off', all_retired, 8)]
+    for TRACK in TRACKS:                                    # (machines() reads it)
+        for label, scenario, n in scenarios:
+            n = n if TRACK == 'Silverstone' else (n + 1) // 2
+            found = [f'seed {seed}: ' + '; '.join(f) for seed in range(n) for f in [scenario(seed)] if f]
+            print(f'{label}, {TRACK}: ' + ('; '.join(found) if found else f'{n} cases OK'))
+            total += len(found)
+    TRACK = 'Silverstone'
     total += run('ProcessOvertaking', n=300, prep=close_cars)
     total += run('CompareSegments', n=500, prep=near_segments,
                  args=lambda r: {'x': r.randrange(24), 'y': r.randrange(24), 'carry': r.choice([1, 1, 0]),

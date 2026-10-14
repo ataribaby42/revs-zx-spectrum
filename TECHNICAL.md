@@ -446,7 +446,7 @@ Z80 routine, and compare every mapped byte.
 | `test_physics.py`, `test_physparts.py` | `ApplyDrivingModel` (2,000 random states) and each of its parts |
 | `test_player.py` | driving keys, movement, `ScaleWingSettings` |
 | `test_drivers.py` | driver set-up, speeds, sorting |
-| `test_cars.py` | race set-up, car placement, laps, timers, car objects, contact, crashes |
+| `test_cars.py` | race set-up, car placement, laps, timers, car objects, contact, crashes, cars pushed off the track (on all six tracks) |
 | `test_class.py` | the class drop after qualifying, around the limits of all six tracks |
 | `test_fov.py`, `test_trackcode.py` | the extra tracks' field of view and every patch list |
 
@@ -676,7 +676,7 @@ The 48K is nearly full. What remains:
 | Area | Free |
 | --- | --- |
 | cold code | 233 bytes |
-| hot code | 188 bytes |
+| hot code | 124 bytes |
 | second hot area | 34 bytes |
 | third hot area (after the masks at `$F100`) | 28 bytes |
 | UI overlay | 80 bytes |
@@ -701,6 +701,23 @@ everything else.
   segment. The fix is approved, and the reference is patched to match.
 * **Lap time tenths** move on every update; the original only prints them
   when a second passes.
+* **A car pushed off the track** (a hard contact with the player in a race,
+  `PushCarOffTrack`) no longer stops on its racing line. The original sets
+  a veer in `carSteering`, but it never takes effect (`ProcessOvertaking`
+  clears it, `MoveCars` skips hidden cars), so the car stops where it was
+  hit and the player meets it there on every lap (the other cars drive
+  through it). Now, while it brakes, its racing line moves to the nearer
+  verge by speed / 16 + 4 per iteration (`RetiredCar`). Below speed 32
+  (about 42 mph) it stops braking until it reaches the verge, so a car hit
+  slowly (after the start, in a hairpin) rolls on to it too. At the verge
+  and standing it gets no steering (the overtaking steer of
+  `ProcessOvertaking` could move it off the verge in its last iterations).
+  It stands at the side of the track for the rest of the race and is drawn
+  as before. Its retirement is unchanged: no race time, last in the
+  results, no points, and the HUD still names it. The other cars steer
+  round it where it stands, so the order of the others can differ from the
+  original's after a push off. Qualifying is not affected (no push off
+  there). The C64 reference does the same with a 6502 helper in page 2.
 
 **From ataribaby's version:**
 

@@ -29,7 +29,7 @@ MoveCars:
 @mcar1:
         ld a, (iy + carStatus)
         or a
-        jp m, @mcar8                    ; car stopped: brake
+        jp m, @stopped                  ; car stopped: brake
         ld e, (ix + objTrackSection)
         ld h, trackSectionFlag / 256
         ld l, e
@@ -88,9 +88,15 @@ MoveCars:
         jr nc, @accel
         dec h
         jr @accel
+@retired:
+        call RetiredCar
+        jr nc, @mcar8                   ; brake, else roll on to the verge
 @past:
         ld a, (iy + carSpeedHi)
         jr @mcar11
+@stopped:
+        rra
+        jr c, @retired                  ; bit 0: pushed off the track
 @mcar8:
         ld h, $FE                       ; brake
         ld a, $DC
@@ -260,6 +266,54 @@ MoveCars:
         cp c
         jr z, @mcar20
         jp @mcar1
+
+; RetiredCar: car C (IY) has been pushed off the track (carStatus $91,
+; PushCarOffTrack) and brakes: while it moves, its racing line moves towards
+; the nearer verge (0 or 255) by speed / 16 + 4 per iteration (T = that
+; step). Below speed RETIRED_ROLL it stops braking until it is at the verge
+; (carry set: the speed is kept), so it always comes to a stop at the side
+; of the track instead of on its racing line. At the verge or standing it
+; gets no steering (ProcessOvertaking may steer it to get past a slower car:
+; only while it rolls on to the verge). Not on the C64 (APPROVED_PATCHES: the
+; same in 6502). Preserves BC.
+RETIRED_ROLL    EQU 32
+
+RetiredCar:
+        ld a, (iy + carSpeedHi)
+        or a
+        jr z, @stay                     ; stands
+        ld d, a                         ; D = speed
+        rrca
+        rrca
+        rrca
+        rrca
+        and $0F
+        add a, 4
+        ld (T), a
+        ld e, a                         ; E = step
+        ld a, (iy + carRacingLine)
+        or a
+        jp m, @right
+        sub e                           ; left half: towards 0
+        jr nc, @line
+        xor a
+        jr @line
+@right:
+        add a, e                        ; right half: towards 255
+        jr nc, @line
+        ld a, $FF
+@line:
+        ld (iy + carRacingLine), a
+        inc a
+        cp 2                            ; carry: at the verge (0 or 255)
+        jr c, @stay
+        ld a, d
+        cp RETIRED_ROLL                 ; carry: slow, roll on without braking
+        ret
+@stay:
+        ld (iy + carSteering), 0        ; (no steering off the verge)
+        or a                            ; no carry: brake
+        ret
 
 ; ---------------------------------------------------------------------------
 ; ProcessOvertaking: for each car and the car ahead of it in the race order,

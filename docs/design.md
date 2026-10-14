@@ -405,6 +405,18 @@ no crane: CheckForCrash leaves heightAboveTrack at 0 instead of 127, so a
 Novice race restarts on the ground (the user's choice). tools/c64_image.py
 applies the same patch to the C64 reference (APPROVED_PATCHES, $109D).
 
+A car pushed off the track by the player (PushCarOffTrack, races only)
+brakes to a stop while its racing line moves to the nearer verge (speed /
+16 + 4 per iteration, RetiredCar, called from MoveCars for a stopped car
+with carStatus bit 0; below speed 32 it keeps its speed until it is at the
+verge; at the verge or standing its carSteering is cleared, so the
+overtaking steer cannot move it off), and stands there for the rest of the
+race. The original left it standing on its racing line (its veer in
+carSteering never took effect). The retirement is unchanged (no race time,
+last in the results). The C64 reference has the same change: a helper at
+$0200 called from MoveCars ($2647), which goes back to $2641 (the speed
+kept) for a slow car not yet at the verge.
+
 DrawFence (C64 $3D5C) is procedural as in the original: a diamond mesh that
 repeats every 4 track lines (C64 $3D78, 4 mc pixels = 8 pixels here), black
 wires over the sky above the horizon and over the grass below it, written
