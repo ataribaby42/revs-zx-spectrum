@@ -676,9 +676,9 @@ The 48K is nearly full. What remains:
 | Area | Free |
 | --- | --- |
 | cold code | 233 bytes |
-| hot code | 172 bytes |
+| hot code | 188 bytes |
 | second hot area | 34 bytes |
-| third hot area (after the masks at `$F100`) | 34 bytes |
+| third hot area (after the masks at `$F100`) | 28 bytes |
 | UI overlay | 80 bytes |
 | largest track code | 2 bytes |
 | `$5F00-$5FFF` | 256 bytes, free in every phase |

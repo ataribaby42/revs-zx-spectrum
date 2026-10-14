@@ -46,8 +46,8 @@ def run(track, seed, frames=25):
         zx_scene.place(z, rng.random(), rng.uniform(-2.0, 3.0), rng.randrange(-20000, 20000))
         z.call('GetTrackAndMarkers')
         z.call('BuildEdges')
-        z.mem[cp:cp + 12] = [0] * 8 + [0xFF, 0xFF, 0, 0]      # verge, grass, road
-        z.mem[road + 1] = 0
+        z.mem[cp:cp + 10] = [0] * 8 + [0xFF, 0xFF]            # verge, grass
+        z.mem[road + 1] = 0                                     # road
         z.set('skyClean', 0)
         z.call('Compose')
         z.call('CheckSurfaces')

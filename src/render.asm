@@ -23,14 +23,10 @@ XL_TAB          EQU XCONV + $200        ; floor(l * 6.5 / 256)
 MASKL           EQU MASKS + $10         ; $FF << (7 - n)
 MASKBIT         EQU MASKS + $08         ; $80 >> n
 
-; Material patterns: [even row, odd row]
+; Material patterns of both line parities (grass and verges: cpPatterns in
+; compose.asm)
 PAT_SKY         EQU $00
 PAT_ROAD        EQU $FF
-patGrass:       db %10101010, %01010101
-patVerge:       db %11011101, %01110111         ; colour 0: red
-                db %11111111, %11111111         ; colour 1: black
-                db %00000000, %00000000         ; colour 2: white
-                db %00000000, %00000000         ; colour 3
 
 ; ---------------------------------------------------------------------------
 ; BuildEdges

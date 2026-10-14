@@ -14,7 +14,7 @@ COMPOSE_PAGE    EQU ComposeChain / 256 * 256
 CP_FILL_END     EQU ComposeChainEnd % 256       ; the JP (IY) after the chain
 CP_PATVERGE     EQU cpPatterns % 256    ; verge patterns [colour * 2 + parity]
 CP_PATGRASS     EQU CP_PATVERGE + 8     ; grass patterns [parity]
-CP_PATROAD      EQU CP_PATVERGE + 10    ; road patterns [parity]
+                                        ; (road: PAT_ROAD, both parities)
 
 ; Spans: the current span (pattern B) ends at pixel A, the next one has
 ; pattern C; D = MASKX page. The first span starts at the row start (HL),
@@ -358,7 +358,6 @@ cpPatterns:
         db %00000000, %00000000         ; colour 2: white
         db %00000000, %00000000         ; colour 3
         db %10001000, %00100010         ; grass (25%)
-        db %11111111, %11111111         ; road (black, as on the C64)
         ASSERT ComposeChain / 256 == ($ - 1) / 256
 
 ; EndView: after the objects have been drawn, work out which rows are sky

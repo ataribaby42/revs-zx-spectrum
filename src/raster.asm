@@ -199,8 +199,10 @@ LoadPoint:
         ret
 
 ; RasterSeg: step from p0 to p1. RasterSegLast: the last segment of the
-; edge, a descending one is extended to line 0. A segment with both ends off
-; the screen on the same side is a run of clamped values (no division).
+; edge, a descending one is extended to line 0. Shortcuts (not for an
+; extended segment): ends one line apart store their two lines (RasterTwo),
+; ends off the screen on the same side are a run of clamped values
+; (RasterOff); over 1, 2 or 4 lines the step is a shift, not a division.
 
 RasterSegLast:
         ld e, 1
