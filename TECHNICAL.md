@@ -149,7 +149,7 @@ The working rules were:
 | `$6000-$7FFF` | Contended memory: the cockpit bitmap and the cold code (set-up, game flow, HUD, controls), which runs once per session or rarely. |
 | `$8000-$BFFF` | Hot code and variables. `ZPAGE` mirrors the BBC zero page `$00-$8F` byte for byte (`src/zp.asm`, generated from the BBC symbols), so routines that clear or reuse ranges of it behave exactly like the original. |
 | `$C000-$C7FF` | The track file (the C64 layout), one at a time. |
-| `$C800-$F7FF` | Page-aligned tables: segment buffer, verges, objects, cars, the C64 projection tables, the view buffer, edge tables, yaw-to-x conversion, masks, quarter squares, driver times. |
+| `$C800-$F7FF` | Page-aligned tables: segment buffer, verges, objects, cars, the C64 projection tables, the view buffer, edge tables, yaw-to-x conversion, masks, quarter squares, driver times. The 24 bytes of masks at `$F100` are followed by a third hot code area (the sound). |
 | `$E200-$EDFF` | The view buffer and edge pages while driving. The UI overlay runs here between sessions. |
 | `$F800-$FBFF` | Second hot code area (race logic, object tables). |
 | `$FC00` | Object line buffers. The stack sits below `$FD60`. |
@@ -250,13 +250,17 @@ choice of what is visible are the original's.
    verge ends inside the view (the car across the track) at the screen side
    of its verge if the camera is on the track, otherwise only for the farther
    verge (grass below the nearer one, as on the C64). Lines hidden behind the
-   cockpit are not rasterised at all.
+   cockpit are not rasterised at all. A segment that spans one line (most of
+   them) just stores the clamped x of its two ends, a step over 2 or 4 lines
+   is a shift, and a segment with both ends off the screen on one side is a
+   run of clamped values; only the others divide.
 4. **Compose** (`compose.asm`). Each track line becomes one 32-byte row of
    the view buffer: grass | verge | road | verge | grass, or sky. Whole bytes
    are written by jumping into an unrolled chain of `ld (hl),b / inc l` that
    returns through `JP (IY)`. Only the boundary bytes are merged, with masks
-   from a 256-entry table indexed by x. Unchanged sky rows are neither
-   composed nor copied.
+   from a 256-entry table indexed by x; a boundary in the byte merged last
+   merges that byte again. A line with road across the whole view is one
+   fill. Unchanged sky rows are neither composed nor copied.
 5. **Objects** (`objdraw.asm`). Cars, signs and corner markers use the
    original part definitions (scaffolds) and the BBC scaling (sums of
    `scaleUp >> n`), at 13/16 horizontally for the Spectrum scale. Each part
@@ -352,8 +356,12 @@ Spectrum counterpart and were not ported:
 
 All sound is played on the beeper from the interrupt, once per TV frame:
 
-* **Engine:** 1 + revs/32 clicks per frame, more closely spaced as the revs
-  rise.
+* **Engine:** 1 + revs/64 clicks per frame (1 to 3 over the revs of the
+  game, 40 to 170), 21 - revs/8 delay loops apart, more closely as the revs
+  rise (6 loops from 120 revs on). Until the latest speed round there were
+  1 + revs/32 clicks and the spacing started again at 128 (below); their
+  delay loops in the interrupt cost about 3,300 T-states per frame at high
+  revs, now about 850.
 * **Tyres:** random clicks while they squeal.
 * **Noise bursts:** for impacts and gear changes.
 * **Starter:** sparse pops while T cranks the engine.
@@ -481,7 +489,8 @@ physics and AI code, except three groups:
 ### Renderer tests
 
 * `test_compose.py` and `test_objdraw.py` compare `Compose` and the object
-  renderer with Python models of the same geometry.
+  renderer with Python models of the same geometry (`Compose` also with sky
+  rows left from the last frame).
 * `test_raster.py` compares the edges of 80 random scenes with golden data,
   checks that no line below the highest road line lacks road, and checks the
   step division (`Div16by8`) against exact division.
@@ -499,9 +508,10 @@ physics and AI code, except three groups:
   practice, qualifying and the race, and never over the time warnings,
   FINISHED or a notice.
 * `test_compose.py`, `test_raster.py` and `test_needle.py` (and
-  `test_cars.py` for `MoveCars` and `ProcessOvertaking`) also hold the
-  routines to a time budget (T-states without contention), so a later change
-  cannot make them slower unnoticed.
+  `test_cars.py` for `MoveCars` and `ProcessOvertaking`, `test_proj.py` for
+  the projection, `test_objdraw.py` for `DrawObject`) also hold the routines
+  to a time budget (T-states without contention), so a later change cannot
+  make them slower unnoticed.
 * `test_surfaces.py` checks the grass contacts against the pixels actually
   drawn on track line 10 (1,200 scenes).
 
@@ -565,14 +575,19 @@ with contended memory and `FramePace` disabled. The target is 6.5 frames
 
 | Situation | Frames per iteration |
 | --- | --- |
-| Qualifying, car standing | 5.4 |
-| Qualifying, driving (median) | 5.3 |
-| Race grid, 19 cars in view | 6.6 |
-| Race start, field pulling away | 6.7 on average, up to 7.6 |
+| Qualifying, car standing | 4.5 |
+| Qualifying, driving (median) | 4.8, up to 5.8 |
+| Race grid, engine running, 19 cars in view | 5.7 |
+| Race start, the player in the field pulling away | 5.7 on average, up to 6.2 |
+
+(Silverstone, Novice class, entered through the menus as in
+`test_wings.py`; qualifying from the pits and the race from the grid with
+the throttle held and some steering.)
 
 When an iteration is faster, `FramePace` waits, and the game runs at the C64
-pace. A typical iteration costs about 370,000 T-states. The earlier
-instruction-by-instruction port needed about 925,000.
+pace. An iteration costs about 340,000 T-states while qualifying and about
+400,000 in the race. The earlier instruction-by-instruction port needed about
+925,000.
 
 The main techniques:
 
@@ -600,6 +615,60 @@ The main techniques:
 All optimisations were made under the differential and lockstep tests, so
 the game state stayed bit-exact throughout.
 
+### Profiling
+
+The hot spots are found in the emulated Spectrum (contended memory,
+interrupts, `FramePace` disabled) during a race: sampling the program
+counter every 211 T-states gives a flat profile, and single-stepping with a
+shadow call stack gives the calls per iteration and the inclusive time of
+every routine; a histogram per address, laid over the assembler listing,
+shows the cost of each source line. Before the latest round, in the field at
+the race start the time went to the object drawing (about 95,000 T-states), the track projection
+(80,000), `BuildEdges` (83,000), `Compose` (83,000), the driving model
+(46,000) and the interrupt (40,000: the engine sound's delay loops and the
+view copy).
+
+The latest round brought the race start from 6.9 frames on average (7.5 at
+most) to 5.7 (6.2), qualifying from 5.8 to 4.8 and practice from 4.9 to 4.0,
+with the same results (the engine sound has half its clicks and no longer
+the wide spacing at high revs, see Sound):
+
+| Routine | Before | After (T-states, test scenes) |
+| --- | ---: | ---: |
+| `BuildEdges` | 68,982 | 53,913 |
+| `Compose` | 53,672 | 47,428 |
+| `GetObjYawAngle` + `GetObjPitchAngle` | 2,219 | 1,925 |
+| `DrawObject` | 9,071 | 8,673 |
+
+The test scenes are random; in the game the gains are larger, because the
+special cases below are the common ones there.
+
+* `BuildEdges`: more than half of the segments in the game span one line;
+  their two lines get the clamped x of their ends directly (`RasterTwo`).
+  A step over 2 or 4 lines is a shift instead of a division. A segment with
+  both ends off the screen on the same side (about 9 of 32 per frame) gets
+  the clamped value without the division. The last-segment flag travels in
+  a register. On 1,000 random scenes the edge tables are identical to those
+  of the previous version.
+* `Compose`: a line with road across the whole view (b1 = 0, b2 = 255:
+  most of the lines near the car) is filled in one go. Sky rows and ground
+  rows are separate loops (no horizon test per row); the road pattern is a
+  constant; the six edge values are read without saving the row pointer
+  twice; the mask page is loaded once per row; after a merge the pointer
+  stays on the merged byte, so a boundary in the same byte (a verge
+  narrower than a byte) is merged again without moving back, and no row
+  start has to be kept.
+* Objects: the fill of a part with two edges writes its patterns into
+  whole bytes of the line buffers (`Blit` masks the pixels outside the part
+  anyway) instead of merging them in with `Run`, and the edge colours are
+  worked out once.
+* Projection: the normalisation is inline (four copies), the two signs
+  travel in one register byte, the angle is assembled and negated in `HL`
+  and stored once, and unused temporaries are not written.
+* Memory for it: the fill chain and the pattern table of `Compose` only
+  have to share a page (no `ALIGN 256`, 75 bytes back), and the masks page
+  holds hot code after its 24 bytes (the sound moved there).
+
 ### Free memory
 
 The 48K is nearly full. What remains:
@@ -607,8 +676,9 @@ The 48K is nearly full. What remains:
 | Area | Free |
 | --- | --- |
 | cold code | 233 bytes |
-| hot code | 55 bytes, plus 13 bytes of alignment padding before `COMPOSE_PAGE` |
+| hot code | 172 bytes |
 | second hot area | 34 bytes |
+| third hot area (after the masks at `$F100`) | 34 bytes |
 | UI overlay | 80 bytes |
 | largest track code | 2 bytes |
 | `$5F00-$5FFF` | 256 bytes, free in every phase |
@@ -691,10 +761,27 @@ Most of these were found by the tests.
   drawing (`test_trackview.py`), the scenes across the track went from 4.9%
   to 3.8% of differing points on average, and those of the reports from up
   to 29% to at most 7%; ordinary driving is unchanged.
+* **The engine sounded lower at high revs.** The click spacing came from
+  bits 3-6 of the revs, so at 128 revs it jumped from the shortest back to
+  the longest, and most of the driving (128-170 revs) had the spacing of
+  idling; it also made the engine sound the most expensive just then.
+  Found while profiling the race start; `test_sound.py` now checks that
+  the clicks are never wider apart at higher revs.
 * **The tyre squeal continued** in the menus and through the crash pause.
   Found by `test_sound.py`; fixed with `soundLive`.
 
 **In the tests:**
+
+* `test_objdraw.py` (now 2,000 objects instead of 300) found its model
+  clipping an object of size 255 at the horizon: the game, like the C64,
+  clips only objects smaller than the track width at the horizon, and the
+  test makes that width 255. The model now follows the same rule.
+* The soak test stopped at the second byte of an instruction in
+  `MoveCars`: outside a race its `SBC A,n` was patched to two `NOP`s, so the
+  program counter stood on a byte the listing knows as an operand. It is
+  patched to `CP 0` now (one instruction, A unchanged; the next `SUB` sets
+  the flags anyway). The soak test only showed it once the timing of its
+  samples changed.
 
 * The C64 side ran out of random numbers after about 22,000 iterations of a
   20-lap race, while the Z80 wrapped round its table. The C64 side now wraps

@@ -8,18 +8,21 @@
 ; the patterns on either side. A boundary at x = 255 is an edge clamped at the
 ; right border: its mask (MASKX) is 0, the span left of it fills the row.
 
-; Compose page layout (page aligned, see the end of this file)
-CP_FILL_END     EQU 64                  ; offset of the JP (IY) after the chain
-CP_PATVERGE     EQU $80                 ; verge patterns [colour * 2 + parity]
-CP_PATGRASS     EQU $88                 ; grass patterns [parity]
-CP_PATROAD      EQU $8A                 ; road patterns [parity]
+; The fill chain and the pattern table lie in one page (IXH and H select it,
+; see the end of this file)
+COMPOSE_PAGE    EQU ComposeChain / 256 * 256
+CP_FILL_END     EQU ComposeChainEnd % 256       ; the JP (IY) after the chain
+CP_PATVERGE     EQU cpPatterns % 256    ; verge patterns [colour * 2 + parity]
+CP_PATGRASS     EQU CP_PATVERGE + 8     ; grass patterns [parity]
+CP_PATROAD      EQU CP_PATVERGE + 10    ; road patterns [parity]
 
-; SPANn (expanded below for n = 0..3): the current span (pattern B) ends at
-; pixel A, the next one has pattern C, HL = next byte to write, C' = the low
-; address byte of the row start. Fills the whole bytes before the boundary
-; byte, then merges the boundary byte (or re-merges the byte just written
-; when the boundary lies in it). A boundary at a byte start merges the whole
-; byte (mask $FF), which is the same as the next span filling it.
+; Spans: the current span (pattern B) ends at pixel A, the next one has
+; pattern C; D = MASKX page. The first span starts at the row start (HL),
+; the others after the byte merged last (HL stays on it): the whole bytes
+; before the boundary byte are filled, then the boundary byte is merged (or
+; the byte merged last is merged again when the boundary lies in it). A
+; boundary at a byte start merges the whole byte (mask $FF), which is the
+; same as the next span filling it.
 
 ; Sky rows that are still sky in the buffer from the last frame (skyClean)
 ; are not written again.
@@ -42,14 +45,17 @@ SkyRows:
 Compose:
         ld ixh, COMPOSE_PAGE / 256
         call SkyRows
-        ld b, a
+        cp VIEW_ROWS - HIDDEN_LINES     ; (the bottom rows are behind the
+        jr c, @c0                       ; cockpit)
+        ld a, VIEW_ROWS - HIDDEN_LINES
+@c0:
+        ld c, a                         ; C = first ground row
         ld a, (skyClean)                ; start at min(skyClean, sky rows)
-        cp b
+        cp c
         jr c, @c1
-        ld a, b
+        ld a, c
 @c1:
-        cp VIEW_ROWS - HIDDEN_LINES     ; the bottom rows are behind the cockpit
-        ret nc
+        ld b, a
         ld l, a                         ; HL = VIEW_BUF + 32 * row
         ld h, 0
         add hl, hl
@@ -59,126 +65,143 @@ Compose:
         add hl, hl
         ld de, VIEW_BUF
         add hl, de
+        ld a, c
+        sub b                           ; sky rows to write
+        jr z, @ground
+        exx
+        ld b, a                         ; B' = sky rows to write
+        exx
+        ld b, PAT_SKY
+@sky:
+        ld ixl, ComposeChain % 256
+        ld iy, @s1
+        jp (ix)
+@s1:
+        ld a, l
+        or a
+        jr nz, @s2
+        inc h                           ; the next page
+@s2:
+        exx
+        dec b
+        exx
+        jr nz, @sky
+@ground:
+        ld a, c
+        cp VIEW_ROWS - HIDDEN_LINES
+        ret nc                          ; all sky
         cpl
         add a, VIEW_ROWS                ; track line = 79 - row
         exx
         ld b, a                         ; B' = track line
         exx
+        jr @row
+@b2r:
+        ld a, e
+        or a
+        jr z, @roadRow                  ; and b1 = 0: road across the row
+        ld a, 255
+        jr @b2x
+@roadRow:
+        ld a, (@road + 1)
+        ld b, a
+@grassRow:
+        pop hl                          ; 32 bytes of grass (B), or road
+        ld ixl, ComposeChain % 256
+        ld iy, @next
+        jp (ix)
 @row:                                   ; HL = row start, B' = its track line
-        ld a, l
         exx
-        ld c, a                         ; C' = row start (low byte)
         ld a, b
         exx
-        ld c, a                         ; C = track line
-        ld a, (horizonLine)
-        cp c
-        jr nc, @ground
-        ld b, PAT_SKY
-        jp @whole
-@ground:
         push hl
-        ld a, c                         ; parity -> patterns
-        and 1
-        ld e, a
-        add a, CP_PATGRASS
+        ld c, a                         ; C = track line
+        and 1                           ; parity -> patterns
+        add a, CP_PATVERGE - 2
+        ld e, a                         ; E = verge patterns - 2 + parity
+        add a, CP_PATGRASS - CP_PATVERGE + 2
         ld l, a
         ld h, COMPOSE_PAGE / 256
-        ld b, (hl)                      ; B = grass
-        add a, CP_PATROAD - CP_PATGRASS
-        ld l, a
         ld a, (hl)
-        ld (@road + 1), a
-        ld a, b
         ld (@grass + 1), a
+        ld b, a                         ; B = grass
         ld a, c
-        add a, EDGE_COLL % 256
-        ld d, a                         ; D = low byte of EDGE_COLL + line
-        ld l, a
-        ld h, EDGE_COLL / 256
-        ld a, (hl)                      ; left verge colour
-        cp $FF
-        jp z, @grassRow
-        add a, a
-        add a, e
-        add a, CP_PATVERGE
-        ld l, a
-        ld h, COMPOSE_PAGE / 256
-        ld a, (hl)
-        ld (@vl + 1), a
-        ld a, d
-        add a, EDGE_COLR - EDGE_COLL
+        add a, EDGE_COLR % 256
         ld l, a
         ld h, EDGE_COLR / 256
-        ld a, (hl)                      ; right verge colour
-        cp $FF
-        jp z, @grassRow
+        ld a, (hl)                      ; right verge colour ($FF: no road)
+        inc a
+        jr z, @grassRow
         add a, a
         add a, e
-        add a, CP_PATVERGE
         ld l, a
         ld h, COMPOSE_PAGE / 256
         ld a, (hl)
         ld (@vr + 1), a
-        ; boundaries b0 .. b3
         ld a, c
+        add a, EDGE_COLL % 256
         ld l, a
+        ld h, EDGE_COLL / 256
+        ld a, (hl)                      ; left verge colour
+        inc a
+        jr z, @grassRow
+        add a, a
+        add a, e
+        ld l, a
+        ld h, COMPOSE_PAGE / 256
+        ld a, (hl)
+        ld (@vl + 1), a
+        ; boundaries b0 .. b3
+        ld l, c
         ld h, EDGE_LOUT / 256
-        ld d, (hl)
+        ld d, (hl)                      ; D = b0
+        ld a, c
         add a, EDGE_LIN - EDGE_LOUT
         ld l, a
-        ld e, (hl)
+        ld e, (hl)                      ; E = b1
         add a, EDGE_RIN - EDGE_LIN
         ld l, a
-        ld a, (hl)
+        ld a, (hl)                      ; A = b2
+        inc a
+        jr z, @b2r                      ; b2 = 255 (clamped at the right)
+        dec a
+@b2x:
         ld h, EDGE_ROUT / 256
         ld l, c
-        ld c, a
-        ld a, e                         ; b2 = max(b1, b2)
-        cp c
-        jr c, @o1
-        ld c, e
+        ld c, (hl)                      ; C = b3
+        cp e                            ; b2 = max(b1, b2)
+        jr nc, @o1
+        ld a, e
 @o1:
-        ld a, (hl)                      ; b3 = max(b2, b3)
-        cp c
+        ld (@b2 + 1), a
+        cp c                            ; b3 = max(b2, b3)
         jr nc, @o2
         ld a, c
 @o2:
         ld (@b3 + 1), a
-        ld a, c
-        ld (@b2 + 1), a
         ld a, e
         ld (@b1 + 1), a
-        ld a, d                         ; b0 = min(b0, b1)
-        cp e
+        cp d                            ; b0 = min(b0, b1)
         jr c, @o3
-        ld a, e
+        ld a, d
 @o3:
         pop hl
+        ld d, MASKX / 256
 @vl:
         ld c, 0                         ; patched: left verge pattern
-        ld e, a                         ; SPAN 0
+        ld e, a                         ; SPAN 0: grass | left verge
         rrca
         rrca
         rrca
-        and $1F
-        exx
-        add a, c                        ; boundary byte (low address byte)
-        exx
-        sub l                           ; bytes before it
+        and $1F                         ; whole bytes before the boundary
         jr z, @m0
-        jp m, @fix0
         add a, a                        ; fill them: enter the chain at
         cpl                             ; CP_FILL_END - 2 * count
         add a, CP_FILL_END + 1
         ld ixl, a
         ld iy, @m0
         jp (ix)
-@fix0:
-        dec l                           ; the boundary is in the byte just
-        ld b, (hl)                      ; written: merge into that byte
 @m0:
-        ld d, MASKX / 256
         ld a, (de)                      ; bits from the boundary on
         ld e, a
         ld a, b
@@ -186,132 +209,125 @@ Compose:
         and e
         xor b
         ld (hl), a
-        inc l
-        ld b, c                         ; grass | left verge
+        ld b, c
 @road:
-        ld c, 0                         ; patched: road
+        ld c, PAT_ROAD                  ; (tests patch it)
 @b1:
         ld a, 0                         ; patched: b1
-        ld e, a                         ; SPAN 1
+        ld e, a                         ; SPAN 1: left verge | road
         rrca
         rrca
         rrca
+        xor l
         and $1F
-        exx
-        add a, c                        ; boundary byte (low address byte)
-        exx
-        sub l                           ; bytes before it
-        jr z, @m1
-        jp m, @fix1
-        add a, a                        ; fill them: enter the chain at
-        cpl                             ; CP_FILL_END - 2 * count
-        add a, CP_FILL_END + 1
+        xor l                           ; the boundary byte (low address byte)
+        sub l                           ; bytes after the one merged last
+        jr z, @f1
+        dec a
+        jr z, @a1
+        add a, a                        ; fill those before the boundary:
+        cpl                             ; enter the chain at its INC L before
+        add a, CP_FILL_END              ; CP_FILL_END - 2 * count
         ld ixl, a
         ld iy, @m1
         jp (ix)
-@fix1:
-        dec l                           ; the boundary is in the byte just
-        ld b, (hl)                      ; written: merge into that byte
+@f1:
+        ld b, (hl)                      ; in the byte merged last: merge again
+        dec l
+@a1:
+        inc l
 @m1:
-        ld d, MASKX / 256
-        ld a, (de)                      ; bits from the boundary on
+        ld a, (de)
         ld e, a
         ld a, b
         xor c
         and e
         xor b
         ld (hl), a
-        inc l
-        ld b, c                         ; left verge | road
+        ld b, c
 @vr:
         ld c, 0                         ; patched: right verge pattern
 @b2:
         ld a, 0                         ; patched: b2
-        ld e, a                         ; SPAN 2
+        ld e, a                         ; SPAN 2: road | right verge
         rrca
         rrca
         rrca
+        xor l
         and $1F
-        exx
-        add a, c                        ; boundary byte (low address byte)
-        exx
-        sub l                           ; bytes before it
-        jr z, @m2
-        jp m, @fix2
-        add a, a                        ; fill them: enter the chain at
-        cpl                             ; CP_FILL_END - 2 * count
-        add a, CP_FILL_END + 1
+        xor l
+        sub l
+        jr z, @f2
+        dec a
+        jr z, @a2
+        add a, a
+        cpl
+        add a, CP_FILL_END
         ld ixl, a
         ld iy, @m2
         jp (ix)
-@fix2:
-        dec l                           ; the boundary is in the byte just
-        ld b, (hl)                      ; written: merge into that byte
+@f2:
+        ld b, (hl)
+        dec l
+@a2:
+        inc l
 @m2:
-        ld d, MASKX / 256
-        ld a, (de)                      ; bits from the boundary on
+        ld a, (de)
         ld e, a
         ld a, b
         xor c
         and e
         xor b
         ld (hl), a
-        inc l
-        ld b, c                         ; road | right verge
+        ld b, c
 @grass:
         ld c, 0                         ; patched: grass
 @b3:
         ld a, 0                         ; patched: b3
-        ld e, a                         ; SPAN 3
+        ld e, a                         ; SPAN 3: right verge | grass
         rrca
         rrca
         rrca
+        xor l
         and $1F
-        exx
-        add a, c                        ; boundary byte (low address byte)
-        exx
-        sub l                           ; bytes before it
-        jr z, @m3
-        jp m, @fix3
-        add a, a                        ; fill them: enter the chain at
-        cpl                             ; CP_FILL_END - 2 * count
-        add a, CP_FILL_END + 1
+        xor l
+        sub l
+        jr z, @f3
+        dec a
+        jr z, @a3
+        add a, a
+        cpl
+        add a, CP_FILL_END
         ld ixl, a
         ld iy, @m3
         jp (ix)
-@fix3:
-        dec l                           ; the boundary is in the byte just
-        ld b, (hl)                      ; written: merge into that byte
+@f3:
+        ld b, (hl)
+        dec l
+@a3:
+        inc l
 @m3:
-        ld d, MASKX / 256
-        ld a, (de)                      ; bits from the boundary on
+        ld a, (de)
         ld e, a
         ld a, b
         xor c
         and e
         xor b
         ld (hl), a
-        inc l
-        ld b, c                         ; right verge | grass
-        exx                             ; grass to the end of the row
-        ld a, c
-        exx
-        add a, 32
-        sub l
-        jr z, @next
+        ld b, c
+        ld a, l                         ; grass to the end of the row
+        cpl
+        and $1F
+        jr z, @end
         add a, a
         cpl
-        add a, CP_FILL_END + 1
+        add a, CP_FILL_END
         ld ixl, a
         ld iy, @next
         jp (ix)
-@grassRow:
-        pop hl                          ; 32 bytes of grass (B)
-@whole:                                 ; 32 bytes of B
-        ld ixl, 0
-        ld iy, @next
-        jp (ix)
-@next:                                  ; HL = row start + 32 (low byte)
+@end:
+        inc l
+@next:                                  ; HL = the next row's start
         ld a, l
         or a
         jr nz, @n1
@@ -329,20 +345,21 @@ Compose:
         ENDIF
         ret
 
-        ALIGN 256
-COMPOSE_PAGE:
+ComposeChain:
         REPT 32
         ld (hl), b
         inc l
         ENDR
+ComposeChainEnd:
         jp (iy)
-        ds CP_PATVERGE - CP_FILL_END - 2
+cpPatterns:
         db %10101010, %01010101         ; colour 0: red (50%)
         db %11111111, %11111111         ; colour 1: black
         db %00000000, %00000000         ; colour 2: white
         db %00000000, %00000000         ; colour 3
         db %10001000, %00100010         ; grass (25%)
         db %11111111, %11111111         ; road (black, as on the C64)
+        ASSERT ComposeChain / 256 == ($ - 1) / 256
 
 ; EndView: after the objects have been drawn, work out which rows are sky
 ; (in the buffer and, after the next copy, on the screen) and where the

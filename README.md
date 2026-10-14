@@ -8,8 +8,9 @@ layout and the memory use were designed for the Spectrum.
 
 The game runs at the C64's pace: one simulation step every 0.13 s (6.5 TV
 frames). Earlier ZX conversions of Revs managed 3.4–3.8 updates per second;
-this one keeps up with the C64 in qualifying and comes close at a race start
-with the whole field in view.
+this one keeps up with the C64 in qualifying, and in the measured race start
+at Silverstone with the whole field in view too (5.7 frames per step on
+average, 6.2 at most).
 
 ## Features
 

@@ -11,14 +11,12 @@ reOff:          db 0            ; 0 inner edge, 16 outer edge
 reEnd:          db 0            ; end verge index (exclusive)
 rsTabLo:        db 0            ; edge table address
 rsTabHi:        db 0
-rsLastF:        db 0            ; 1: last segment, extend to line 0
 rsCount:        db 0
 ; tail modes (TailModes): 0 none, TAIL_LEFT: at x = 0, TAIL_RIGHT: at x = 255,
 ; + TAIL_TRACK: the camera is on the track
 TAIL_LEFT       EQU 1
 TAIL_RIGHT      EQU 2
 TAIL_TRACK      EQU $80
-rasterSlowOnly: db 0            ; non-zero: always use RasterLoop (tests)
 
 ; RasterEdge: B = first verge index, C = end index (exclusive), A = x offset
 ; (0 inner, 16 outer), HL = edge table, DE <> 0: also store colours at HL+$100
@@ -32,10 +30,13 @@ RasterEdge:
         ld a, d
         or e
         ld hl, $3624                    ; INC H / LD (HL),n
+        ld a, $24                       ; (RasterTwo: INC H)
         jr nz, @col
         ld hl, $0218                    ; JR +2
+        ld a, $C9                       ; (RasterTwo: RET)
 @col:
         ld (rsColOp), hl
+        ld (RasterTwo@col), a
         ld a, c
         ld (reEnd), a
         ld a, b
@@ -57,11 +58,9 @@ RasterEdge:
         ld a, b
         inc a
         ld hl, reEnd
-        sub (hl)                        ; Z: last segment
-        push af
+        cp (hl)
+        jr z, @last
         call RasterSeg
-        pop af
-        call z, RasterTail
         pop bc
         ld hl, (p1x)
         ld (p0x), hl
@@ -69,6 +68,10 @@ RasterEdge:
         ld (p0y), hl
         inc b
         jr @loop
+@last:
+        call RasterSegLast
+        pop bc
+        jp RasterTail
 
 ; RasterTail: after the last segment. A descending last segment has been
 ; extended to the bottom by RasterSeg; otherwise (flat or rising) the edge
@@ -195,14 +198,16 @@ LoadPoint:
         ld (p1x), hl
         ret
 
-; RasterSeg: step from p0 to p1. Z set: last segment, extend to line 0.
+; RasterSeg: step from p0 to p1. RasterSegLast: the last segment of the
+; edge, a descending one is extended to line 0. A segment with both ends off
+; the screen on the same side is a run of clamped values (no division).
 
+RasterSegLast:
+        ld e, 1
+        jr RasterSegE
 RasterSeg:
-        ld a, 0
-        jr nz, @n1
-        inc a
-@n1:
-        ld (rsLastF), a
+        ld e, 0                         ; E = 1: the last segment
+RasterSegE:
         ld a, (p0c)
         ld (rsColOp + 2), a
         ld a, (p0y)
@@ -221,22 +226,37 @@ RasterSeg:
         ld c, a                         ; n = -dy
         inc a
         ld (rsCount), a
-        ld a, (rsLastF)
-        or a
-        jr z, @d1
-        ld a, b                         ; extend to line 0: y0 + 1 lines
-        or a
-        jp m, @d1
-        inc a
-        ld (rsCount), a
-@d1:
         ld a, $2D                       ; DEC L
-@common:
+        dec e
+        jr nz, @common
+        ld e, b                         ; extend to line 0: y0 + 1 lines
+        inc e
+        dec e
+        jp m, @common
+        inc e
+        ld hl, rsCount
+        ld (hl), e
         ld (rsLStep), a
-        ; step = (x1 - x0) / n as a signed 16.8 value
         ld hl, (p1x)
         ld de, (p0x)
+        jr @dx                          ; (x runs on past p1: no shortcut)
+@common:
+        ld (rsLStep), a
+        ld hl, (p1x)
+        ld de, (p0x)
+        dec c
+        jp z, RasterTwo                 ; one line apart (most segments)
+        inc c
+        ld a, d                         ; both ends off the screen on one
+        or a                            ; side: clamped values
+        jr z, @dx
+        xor h
+        jp m, @dx
+        ld a, h
         or a
+        jp nz, RasterOff
+@dx:                                   ; step = (x1 - x0) / n as a signed
+        or a                            ; 16.8 value
         sbc hl, de
         push af                         ; sign of dx
         jp p, @dpos
@@ -254,24 +274,31 @@ RasterSeg:
         srl h
         rr l
 @nok:
+        ld a, c                         ; n = 1, 2, 4 (most segments span
+        dec a                           ; one line): shifts
+        jr z, @n1
+        dec a
+        jr z, @n2
+        sub 2
+        jr z, @n4
         ld a, h
         or a
         jr nz, @big
         ld a, l
         cp c
         jr nc, @full
-        ld l, 0                         ; |dx| < n: no integer part, the
-        REPT 8                          ; fraction |dx| * 256 / n in 8 steps
-        sla l
-        add a, a
-        cp c
-        jr c, $ + 4
-        sub c
-        inc l
-        ENDR
-        ld e, l
-        ld l, 0
-        ld h, 0
+        ld hl, 0                        ; |dx| < n: no integer part
+        jr @frac
+@n4:
+        srl h                           ; (A = 0)
+        rr l
+        rra
+@n2:
+        srl h
+        rr l
+        rra
+@n1:
+        ld e, a                         ; the fraction: the bits shifted out
         jr @divdone
 @full:
         ld h, l                         ; |dx| < 256: (|dx| * 256) / n gives 8.8
@@ -283,6 +310,7 @@ RasterSeg:
         jr @divdone
 @big:
         call Div16by8                   ; HL = |dx| / n, A = remainder
+@frac:
         ld e, 0                         ; fraction = remainder * 256 / n
         REPT 8
         sla e
@@ -362,9 +390,6 @@ RasterSeg:
 @go:
         ld a, h
         ld (rsCount), a
-        ld a, (rasterSlowOnly)          ; (test switch)
-        or a
-        jr nz, @slow
         ld a, (rsSL + 1)                ; the step must fit 8.8 (|step| < 128)
         rla
         sbc a, a
@@ -400,6 +425,111 @@ RasterSeg:
         ld a, (rsCount)
         ld b, a
         jp RasterLoop
+
+; RasterTwo: RasterSeg's lines when the ends are one line apart (and the
+; segment is not extended): line y0 gets x0, line y1 gets x1, clamped to the
+; screen (as stepping by dx from x0 + 1/2 gives them), each line clipped as
+; RasterSeg clips them. B = y0, DE = x0, HL = x1
+RasterTwo:
+        push hl
+        ex de, hl
+        ld c, b
+        call @put                       ; line y0
+        pop hl
+        ld a, (p1y)
+        ld c, a                         ; line y1
+@put:                                   ; line C gets x = HL (clamped) unless
+        ld a, c                         ; it is clipped
+        cp VIEW_ROWS
+        ret nc
+        cp HIDDEN_LINES
+        ret c
+        ld a, h
+        or a
+        ld a, l
+        jr z, @p1
+        ld a, h
+        rla
+        sbc a, a
+        cpl                             ; right of the screen: 255, left: 0
+@p1:
+        ld hl, (rsTabLo)                ; (rsTabHi follows)
+        ld e, a
+        ld a, l
+        add a, c
+        ld l, a
+        ld (hl), e
+@col:
+        inc h                           ; patched: INC H, or RET without
+        ld a, (rsColOp + 2)             ; colours
+        ld (hl), a
+        ret
+
+; RasterOff: RasterSeg's lines when both ends lie off the screen on the side
+; of D (the high byte of x0): 0 or 255, the lines clipped as RasterSeg clips
+; them (B = first line, rsCount, rsLStep)
+RasterOff:
+        ld a, d
+        rla
+        sbc a, a
+        cpl                             ; right of the screen: 255, left: 0
+        ld e, a
+        ld a, (rsCount)
+        ld h, a                         ; H = lines
+        ld a, (rsLStep)
+        cp $2D
+        jr nz, @up
+        ld a, b                         ; descending: from at most line 79
+        or a
+        ret m                           ; starts below the view
+        cp HIDDEN_LINES
+        ret c                           ; ... or behind the cockpit
+        sub VIEW_ROWS
+        jr c, @d2
+        inc a                           ; the lines above the view
+        ld c, a
+        ld a, h
+        sub c
+        ret z
+        ret c
+        ld h, a
+        ld b, VIEW_ROWS - 1
+@d2:
+        ld a, b                         ; at most down to line HIDDEN_LINES
+        inc a
+        sub HIDDEN_LINES
+        cp h
+        jr nc, @go
+        ld h, a
+@go:
+        ld a, h
+        ld (rsCount), a
+        ld a, e
+        jp RasterConst
+@up:
+        ld a, b                         ; ascending: from at least line
+        add a, 128                      ; HIDDEN_LINES (signed compare)
+        cp 128 + HIDDEN_LINES
+        jr nc, @u2
+        ld a, HIDDEN_LINES
+        sub b
+        ld c, a                         ; the lines below it
+        ld a, h
+        sub c
+        ret z
+        ret c
+        ld h, a
+        ld b, HIDDEN_LINES
+@u2:
+        ld a, b
+        cp VIEW_ROWS
+        ret nc
+        ld a, VIEW_ROWS                 ; at most 80 - y lines
+        sub b
+        cp h
+        jr nc, @go
+        ld h, a
+        jr @go
 
 ; RasterPtr: B = first line -> BC = edge table pointer, IXL = rsCount; the
 ; line step (INC C / DEC C) is patched into the run loops (when it changes)

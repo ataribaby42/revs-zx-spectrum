@@ -1,4 +1,5 @@
-"""Compare GetObjYawAngle / GetObjPitchAngle with the C64 logarithmic projection."""
+"""Compare GetObjYawAngle / GetObjPitchAngle with the C64 logarithmic projection.
+The average time of a yaw and a pitch call must stay within the budget."""
 import random
 import sys
 from pathlib import Path
@@ -8,6 +9,7 @@ from harness import C64, Z80  # noqa: E402
 
 C64_YAW = 0x1CDA
 C64_PITCH = 0x1F17
+BUDGET = 1_950                          # average T of a yaw plus a pitch call (no contention)
 
 
 def rand16(rng):
@@ -25,6 +27,7 @@ def run(n, seed=1):
     rng = random.Random(seed)
     c64, z80 = C64(), Z80()
     fails = 0
+    total = 0
     for i in range(n):
         x = rng.choice([rng.randrange(0, 118), 0xFA, 0xFD, 0xF4])
         y = 0
@@ -53,7 +56,7 @@ def run(n, seed=1):
                     m.set(nm, [rng.randrange(256), ref[a] & 255, ref[a] >> 8])
             m.set('playerPitchAngle', pitch)
         c64.call(C64_YAW, x=x, y=y)
-        z80.call('GetObjYawAngle', c=x)
+        total += z80.call('GetObjYawAngle', c=x)
         names = ['II', 'JJ', 'K', 'L']
         a = [c64.get(k)[0] for k in names]
         b = [z80.get(k)[0] for k in names]
@@ -63,7 +66,7 @@ def run(n, seed=1):
                 print(f'yaw #{i} x={x} y={y} p={point} r={ref}: C64 {a} Z80 {b}')
             continue
         c64.call(C64_PITCH, x=x, y=y)
-        z80.call('GetObjPitchAngle', c=x)
+        total += z80.call('GetObjPitchAngle', c=x)
         ca, za = c64.carry, z80.carry
         names = ['scaleUp', 'scaleDown']
         a = [ca] + [c64.get(k)[0] for k in names]
@@ -75,11 +78,11 @@ def run(n, seed=1):
             fails += 1
             if fails < 10:
                 print(f'pitch #{i} x={x} y={y} p={point} r={ref}: C64 {a} Z80 {b}')
-    return fails
+    return fails, total / n
 
 
 if __name__ == '__main__':
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 20000
-    f = run(n)
-    print(f'projection: {n} cases, {f} failures')
-    sys.exit(1 if f else 0)
+    f, avg = run(n)
+    print(f'projection: {n} cases, {f} failures, yaw + pitch {avg:.0f} T (budget {BUDGET})')
+    sys.exit(1 if f or avg > BUDGET else 0)

@@ -457,45 +457,62 @@ DrawObjectParts:
         ld a, (partColour)
         or a
         jp m, @four
-        ; two edges: fill the whole part, then the edges if they differ
+        ; two edges: the fill patterns into the whole line bytes of the part
+        ; (Blit masks the pixels outside it), then the edges if they differ
         and 3
-        ld (fillColour), a
-        ld de, (edgeX)
-        ld hl, (partXR)
-        call Run
+        ld c, a                         ; C = fill colour
+        add a, a
+        add a, OBJ_PAT % 256
+        ld l, a
+        ld h, OBJ_LINE / 256
+        ld a, d                         ; (D = partLeft, E = partRight)
+        ld d, (hl)
+        inc l
+        ld b, (hl)                      ; D, B = fill patterns (even, odd line)
+        rrca
+        rrca
+        rrca
+        and $1F
+        ld l, a                         ; L = first byte
+        ld a, e
+        rrca
+        rrca
+        rrca
+        and $1F
+        sub l
+        inc a
+        ld e, a                         ; E = bytes
+@fl:
+        ld (hl), d
+        set 5, l
+        ld (hl), b
+        res 5, l
+        inc l
+        dec e
+        jr nz, @fl
         ld a, (partColour)
         ld b, a
-        and $10
-        jr z, @t1
-        ld a, (leftHalf)                ; outside left edge: fill colour
-        or a
-        jr nz, @t2
+        rrca
+        rrca
+        and 3                           ; the edge colour
+        cp c
+        jr z, @t4                       ; the fill colour: no edges
+        ld c, a
+        bit 4, b
+        jr z, @t1                       ; both edges
+        ld a, (leftHalf)                ; one edge (the fill colour on the
+        or a                            ; outside of the object)
+        jr nz, @t2                      ; left half: the right edge
 @t1:
-        ld a, b
-        rrca
-        rrca
-        and 3
-        ld hl, fillColour
-        cp (hl)
-        jr z, @t2
+        push bc
+        ld a, c
         ld hl, (edgeX)
         call PlotEdge
+        pop bc
+        bit 4, b
+        jr nz, @t4                      ; right half: the left edge only
 @t2:
-        ld a, (partColour)
-        ld b, a
-        and $10
-        jr z, @t3
-        ld a, (leftHalf)                ; outside right edge: fill colour
-        or a
-        jr z, @t4
-@t3:
-        ld a, b
-        rrca
-        rrca
-        and 3
-        ld hl, fillColour
-        cp (hl)
-        jr z, @t4
+        ld a, c
         ld hl, (partXR)
         dec hl
         call PlotEdge

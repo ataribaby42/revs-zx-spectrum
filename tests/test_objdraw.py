@@ -1,6 +1,7 @@
 """Compare the Z80 object renderer (DrawObject) with a Python model of the
 same geometry: BBC scaffold scaling, parts with edges and fills, clipping,
-dither patterns per track line parity.
+dither patterns per track line parity. The average time of DrawObject must
+stay within the budget.
 
 Usage: python tests/test_objdraw.py [cases]
 """
@@ -15,6 +16,7 @@ from harness import Z80  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 PATTERNS = [(0xFF, 0xFF), (0xAA, 0x55), (0x00, 0x00), (0x88, 0x22)]   # [colour][line parity]
 LOD_CAR = 14
+BUDGET = 8_700                          # average T-states of DrawObject (no contention)
 
 
 def load_tables():
@@ -167,11 +169,12 @@ def parts(buf, kind, xc, y, sc, lowest, palette):
 
 
 def main():
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 300
+    n = int(sys.argv[1]) if len(sys.argv) > 1 else 2000
     rng = random.Random(7)
     z = Z80()
     vb = z.sym('VIEW_BUF')
     fails = 0
+    total = 0
     for i in range(n):
         buf = [rng.randrange(256) for _ in range(2560)]
         for k in range(2560):
@@ -189,10 +192,11 @@ def main():
         z.set('objectType', t)
         z.set('directionFacing', 0x80 if back else 0)
         z.set('colourPalette', pal)
-        z.set('horizonTrackWidth', 0 if lowest == 0 else 255)
+        width = 0 if lowest == 0 else 255
+        z.set('horizonTrackWidth', width)
         z.set('horizonLine', lowest)
-        z.call('DrawObject', c=23)
-        draw_model(buf, t, x, y, su, lowest, pal, back)
+        total += z.call('DrawObject', c=23)
+        draw_model(buf, t, x, y, su, lowest if su < width else 0, pal, back)   # clipped beyond the horizon
         got = [z.mem[vb + k] for k in range(2560)]
         if got != buf:
             fails += 1
@@ -200,8 +204,9 @@ def main():
                 diff = [k for k in range(2560) if got[k] != buf[k]]
                 print(f'case {i}: type {t} x {x} y {y} size {su} lowest {lowest}: {len(diff)} bytes differ, '
                       f'first row {diff[0] // 32} col {diff[0] % 32}: Z80 {got[diff[0]]:08b} model {buf[diff[0]]:08b}')
-    print(f'objdraw: {fails}/{n}')
-    return fails
+    avg = total / n
+    print(f'objdraw: {fails}/{n}, average {avg:.0f} T (budget {BUDGET})')
+    return fails + (avg > BUDGET)
 
 
 if __name__ == '__main__':

@@ -53,7 +53,6 @@ Entry:
         INCLUDE "physics.asm"
         INCLUDE "physics2.asm"
         INCLUDE "keys.asm"
-        INCLUDE "sound.asm"
         INCLUDE "player.asm"
         INCLUDE "drivers.asm"
         INCLUDE "ai.asm"
@@ -95,6 +94,9 @@ UI_END:
         ASSERT $ <= MASKS
         ds MASKS - $
         INCLUDE "masks.asm"
+HOT3:                                   ; hot code in the rest of the masks page
+        INCLUDE "sound.asm"
+HOT3_END:
         ASSERT $ <= QSQ_LO
         ds QSQ_LO - $
         INCLUDE "qsq.asm"

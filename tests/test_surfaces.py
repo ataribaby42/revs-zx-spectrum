@@ -37,7 +37,8 @@ def span(e):
 def run(track, seed, frames=25):
     rng = random.Random(seed * 7 + TRACKS.index(track))
     z = machine(track)
-    cp = z.sym('COMPOSE_PAGE')
+    cp = z.sym('cpPatterns')
+    road = z.sym('Compose.road')                    # LD C,PAT_ROAD
     spans = {'leftSurface': span(z.sym('SURF_LEFT')), 'rightSurface': span(z.sym('SURF_RIGHT'))}
     zx_scene.setup(z, rng.randrange(z.mem[z.sym('TRACK') + 0x6FA] // 8), rng.randrange(20),
                    rng.choice([0, 0, 0x80]))
@@ -45,7 +46,8 @@ def run(track, seed, frames=25):
         zx_scene.place(z, rng.random(), rng.uniform(-2.0, 3.0), rng.randrange(-20000, 20000))
         z.call('GetTrackAndMarkers')
         z.call('BuildEdges')
-        z.mem[cp + 0x80:cp + 0x8C] = [0] * 8 + [0xFF, 0xFF, 0, 0]      # verge, grass, road
+        z.mem[cp:cp + 12] = [0] * 8 + [0xFF, 0xFF, 0, 0]      # verge, grass, road
+        z.mem[road + 1] = 0
         z.set('skyClean', 0)
         z.call('Compose')
         z.call('CheckSurfaces')

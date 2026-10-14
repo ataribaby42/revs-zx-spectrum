@@ -2,7 +2,9 @@
 horizon line -> expected view buffer (80 rows x 32 bytes).
 
 Row r shows track line 79 - r. Lines above the horizon are sky. The bottom
-HIDDEN_LINES rows (behind the opaque cockpit) are not composed. A line
+HIDDEN_LINES rows (behind the opaque cockpit) are not composed, nor are
+the top rows that are still sky from the last frame (skyClean, if they are
+sky in this one too). A line
 without a verge colour (EDGE_COLL or EDGE_COLR = $FF) is all grass. Other
 lines are grass | left verge | road | right verge | grass with the
 boundaries b0 = min(LOUT, LIN), b1 = LIN, b2 = max(LIN, RIN),
@@ -21,7 +23,7 @@ SKY = 0x00
 GRASS = (0x88, 0x22)
 ROAD = (0xFF, 0xFF)
 VERGE = [(0xAA, 0x55), (0xFF, 0xFF), (0x00, 0x00), (0x00, 0x00)]
-BUDGET = 68_000                         # average T-states per case (no contention)
+BUDGET = 47_500                         # average T-states per case (no contention)
 
 
 def model(lout, lin, rin, rout, coll, colr, horizon):
@@ -83,6 +85,8 @@ def main():
             z.mem[e2 + 0x50 + k] = coll[k]
             z.mem[e2 + 0xA0 + k] = colr[k]
         z.set('horizonLine', horizon)
+        clean = rng.choice([0, 0, 80, rng.randrange(80)])
+        z.set('skyClean', clean)
         for k in range(2560):
             z.mem[vb + k] = 0x5A
         t = z.call('Compose')
@@ -90,6 +94,9 @@ def main():
         shown = 32 * (80 - z.sym('HIDDEN_LINES'))     # rows behind the cockpit are skipped
         got = [z.mem[vb + k] for k in range(shown)]
         exp = model(lout, lin, rin, rout, coll, colr, horizon)[:shown]
+        sky = 79 - horizon if horizon < 80 else 0
+        kept = 32 * min(clean, sky, 80 - z.sym('HIDDEN_LINES'))
+        exp[:kept] = [0x5A] * kept                    # clean sky: not written
         if got != exp:
             fails += 1
             if fails <= 3:
@@ -98,7 +105,7 @@ def main():
                 line = 79 - r
                 print(f'case {i}: {len(d)} bytes differ, row {r} (line {line}) col {c}: Z80 {got[d[0]]:08b} '
                       f'model {exp[d[0]]:08b}; edges {lout[line]} {lin[line]} {rin[line]} {rout[line]} '
-                      f'cols {coll[line]} {colr[line]} horizon {horizon}')
+                      f'cols {coll[line]} {colr[line]} horizon {horizon} skyClean {clean}')
         if i < 3:
             print(f'case {i}: {t} T')
     avg = total / n

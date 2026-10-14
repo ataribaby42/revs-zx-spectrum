@@ -12,7 +12,8 @@
 ; $C000-$C7FF  the track (one at a time: Silverstone is loaded with the
 ;              game, a track loaded from tape replaces it)
 ; $C800-$FD5F  uncontended: page-aligned tables and buffers, more hot code
-;              ($F800-$FBFF), object line buffers ($FC00), stack (below $FD60)
+;              ($F118-$F1FF after the masks, $F800-$FBFF), object line
+;              buffers ($FC00), stack (below $FD60)
 ; $E200-$EDFF  view buffer and edge pages while driving; the UI overlay runs
 ;              here between the sessions (loaded here with the game)
 ; $E180-$E1FF  UI keyboard routines (resident, loaded)
@@ -51,7 +52,7 @@ VIEW_BUF        EQU $E200       ; 80 rows x 32 bytes ($E200-$EBFF)
 EDGE_PAGE1      EQU $EC00       ; per-line edge tables (render.asm)
 EDGE_PAGE2      EQU $ED00
 XCONV           EQU $EE00       ; 3 pages: yaw -> screen x
-MASKS           EQU $F100       ; pixel masks
+MASKS           EQU $F100       ; pixel masks (24 bytes), then hot code (HOT3)
 QSQ_LO          EQU $F200       ; quarter squares, low bytes (2 pages)
 QSQ_HI          EQU $F400       ; high bytes (2 pages)
 MASKX           EQU $F600       ; Compose boundary masks by x (gen_tables.py)

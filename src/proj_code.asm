@@ -1,42 +1,10 @@
 ; Projection routines (see proj.asm for the tables and variables)
-
-; ---------------------------------------------------------------------------
-; Normalize: HL = non-zero value. Returns A = mantissa fraction (the 8 bits
-; after the leading one) and B = exponent code. Corrupts DE, HL.
-
-Normalize:
-        ld a, h
-        or a
-        jr z, @low
-        ld d, P_EXPC / 256
-        ld e, a
-        ld a, (de)
-        ld b, a                         ; n = leading zeros of H
-        cpl
-        add a, 8                        ; skip 7 - n shifts
-        ld (@shift + 1), a
-@shift:
-        jr @chain                       ; offset patched: n + 1 shifts follow
-@chain:
-        add hl, hl
-        add hl, hl
-        add hl, hl
-        add hl, hl
-        add hl, hl
-        add hl, hl
-        add hl, hl
-        add hl, hl
-        ld a, h
-        ret
-@low:
-        ld e, l
-        ld d, P_EXPC / 256
-        ld a, (de)
-        or 8
-        ld b, a
-        dec d                           ; P_MANT
-        ld a, (de)
-        ret
+;
+; A 16-bit value is normalised (inline, four times) into a mantissa fraction
+; M (the 8 bits after the leading one) and an exponent code e: for H <> 0,
+; e = n, the leading zeros of H, and HL is shifted left n + 1 times (a jump
+; into a chain of ADD HL,HL); for H = 0, e = 8 + the leading zeros of L and
+; M comes from a table.
 
 ; ---------------------------------------------------------------------------
 ; UsePlayerReference / UseSignReference: select the reference point of the
@@ -61,6 +29,7 @@ UseReference:
 ; entry C relative to the reference point (normally the player). Preserves C.
 
 GetObjYawAngle:
+        push bc
         ld h, SEG_LO / 256
         ld l, c
         ld e, (hl)
@@ -71,17 +40,15 @@ projRefX:
         ex de, hl                       ; UseSignReference)
         or a
         sbc hl, de                      ; dx
-        ld a, h
-        ld (signDx), a
-        or a
+        ld b, h                         ; B: the sign of dx
         jp p, @x1
         NEGHL
 @x1:
         ld (absDx), hl
+        ld h, SEG_LO / 256
         ld a, c
         add a, 2
         ld l, a
-        ld h, SEG_LO / 256
         ld e, (hl)
         inc h
         ld d, (hl)
@@ -91,25 +58,66 @@ projRefZ:
         or a
         sbc hl, de                      ; dz
         ld a, h
-        ld (signDz), a
-        or a
-        jp p, @z1
+        xor b
+        rl b
+        rra
+        ld c, a                         ; C: bit 7 the sign of dx, bit 6 set
+        bit 7, h                        ; when the signs differ
+        jr z, @z1
         NEGHL
 @z1:
         ld (absDz), hl
+        ld a, h                         ; normalise |dz|: Mz, ez
+        or a
+        jp z, @zLow
+        ld d, P_EXPC / 256
+        ld e, a
+        ld a, (de)
+        ld b, a
+        cpl
+        add a, 8
+        ld (@zs + 1), a
+@zs:
+        jr @zc                          ; offset patched: n + 1 shifts follow
+@zc:
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
         ld a, h
-        or l
-        jp z, @dzZero
-        call Normalize                  ; A = Mz, B = ez
+@zn:
         ld (@mz + 1), a
         ld a, b
         ld (@ez + 1), a
-        ld hl, (absDx)
+        ld hl, (absDx)                  ; normalise |dx|: Mx, ex
         ld a, h
-        or l
-        jp z, @dxZero
-        call Normalize                  ; A = Mx, B = ex
+        or a
+        jp z, @xLow
+        ld d, P_EXPC / 256
         ld e, a
+        ld a, (de)
+        ld b, a
+        cpl
+        add a, 8
+        ld (@xs + 1), a
+@xs:
+        jr @xc                          ; offset patched
+@xc:
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        ld a, h
+@xn:
+        ld l, a                         ; L = Mx
         ld a, b
 @ez:
         sub 0                           ; ex - ez (patched)
@@ -117,7 +125,6 @@ projRefZ:
         add a, a
         ld b, a                         ; II = (ex - ez) * 4
         ld h, P_LOGLO / 256
-        ld l, e
         ld e, (hl)
         inc h
         ld d, (hl)                      ; DE = LOG[Mx]
@@ -149,115 +156,133 @@ projRefZ:
         add a, P_EXPTAB / 256
         ld h, a
         ld l, e
-        ld e, (hl)                      ; T = 256 * min / max
-        ld d, P_ANGLO / 256
+        ld e, (hl)                      ; E = T = 256 * min / max
+        ld d, P_ANGHI / 256
         ld a, (de)
-        ld (II), a
-        inc d
+        ld h, a
+        dec d
         ld a, (de)
-        ld (JJ), a
+        ld l, a                         ; HL = the angle of T
         ld a, b
         or a
+        ld a, e
         jp p, @dxBig
 
         ; |dx| < |dz|: angle measured from straight ahead
-        ld a, e
         cp $54
-        jr nc, @a2
+        sbc a, a
+        ld b, a                         ; B = $FF: T < $54
+        bit 6, c
+        jr z, @a1
+        NEGHL                           ; the signs differ: negative
+@a1:
+        ld a, c                         ; + $8000 when dz < 0
+        add a, a
+        xor c
+        and $80
+        add a, h
+        ld h, a
+        ld (II), hl                     ; II, JJ
+        inc b
+        jr nz, @a2
         ld hl, (absDx)                  ; distance = |dz| + |dx| / 8
-        call Shr3
+        srl h
+        rr l
+        srl h
+        rr l
+        srl h
+        rr l
         ld de, (absDz)
         add hl, de
         ld (K), hl
-        jr @a4
-@a2:
-        call DistDxHalf                 ; |dx| / 2 + |dz| - |dz| / 8
-@a4:                                    ; quadrant, angle from ahead
-        ld a, (signDx)
-        ld hl, signDz
-        xor (hl)
-        call m, NegateIIJJ
-        ld a, (signDz)
-        and $80
-        ld hl, JJ
-        add a, (hl)
-        ld (hl), a
+        pop bc
         ret
+@a2:
+        pop bc
+        jp DistDxHalf                   ; |dx| / 2 + |dz| - |dz| / 8
 
 @dxBig:                                 ; |dx| > |dz|: angle measured from the side
-        ld a, e
         cp $54
-        jr nc, @b2
+        sbc a, a
+        ld b, a
+        bit 6, c
+        jr nz, @b1
+        NEGHL                           ; the same signs: negative
+@b1:
+        ld a, c                         ; + $4000, or $C000 when dx < 0
+        and $80
+        or $40
+        add a, h
+        ld h, a
+        ld (II), hl
+        inc b
+        jr nz, @b2
         ld hl, (absDz)                  ; distance = |dx| + |dz| / 8
-        call Shr3
+        srl h
+        rr l
+        srl h
+        rr l
+        srl h
+        rr l
         ld de, (absDx)
         add hl, de
         ld (K), hl
-        jr @b4
-@b2:
-        call DistDzHalf                 ; |dz| / 2 + |dx| - |dx| / 8
-@b4:
-        ld a, (signDx)
-        ld hl, signDz
-        xor (hl)
-        call p, NegateIIJJ
-        ld a, (signDx)
-        or a
-        ld a, $40
-        jp p, @b5
-        ld a, $C0
-@b5:
-        ld hl, JJ
-        add a, (hl)
-        ld (hl), a
+        pop bc
         ret
+@b2:
+        pop bc
+        jp DistDzHalf                   ; |dz| / 2 + |dx| - |dx| / 8
+
+@zLow:                                  ; |dz| < 256
+        or l
+        jr z, @dzZero
+        ld e, l
+        ld d, P_EXPC / 256
+        ld a, (de)
+        or 8
+        ld b, a
+        dec d                           ; P_MANT
+        ld a, (de)
+        jp @zn
+@xLow:                                  ; |dx| < 256
+        or l
+        jr z, @dxZero
+        ld e, l
+        ld d, P_EXPC / 256
+        ld a, (de)
+        or 8
+        ld b, a
+        dec d
+        ld a, (de)
+        jp @xn
 
 @tiny:                                  ; ratio below 1/256: angle 0
-        xor a
-        ld (II), a
-        ld (JJ), a
         ld a, b
         or a
-        jp m, @dxSmall
-        jr @dzSmall
-
+        jp m, @dxZero
 @dzZero:                                ; |dz| = 0: object directly to the side
-        xor a
-        ld (II), a
-        ld (JJ), a
-@dzSmall:
         call DistDzHalf
-        jr @b4
-
+        ld a, c
+        and $80
+        or $40
+        jr @angle
 @dxZero:                                ; |dx| = 0: straight ahead or behind
-        xor a
-        ld (II), a
-        ld (JJ), a
-@dxSmall:
         call DistDxHalf
-        jr @a4
-
+        ld a, c
+        add a, a
+        xor c
+        and $80
+        jr @angle
 @equal:                                 ; |dx| = |dz|: 45 degrees
         call DistDxHalf
-        xor a
-        ld (II), a
-        ld a, (signDx)
-        or a
-        jp p, @e2
-        ld a, (signDz)
-        or a
-        ld a, $A0
-        jp m, @e4
-        ld a, $E0
-        jr @e4
-@e2:
-        ld a, (signDz)
-        or a
-        ld a, $60
-        jp m, @e4
-        ld a, $20
-@e4:
-        ld (JJ), a
+        ld a, c                         ; $20, $60, $A0 or $E0
+        and $C0
+        add a, $20
+@angle:
+        ld h, a
+        ld l, 0
+        ld (II), hl
+        pop bc
         ret
 
 ; (L,K) = |dx| / 2 + |dz| - (|dz| >> 3)
@@ -275,27 +300,17 @@ DistHalf:                               ; K = DE/2 + HL - HL>>3
         push hl
         add hl, de
         ex (sp), hl
-        call Shr3
+        srl h
+        rr l
+        srl h
+        rr l
+        srl h
+        rr l
         ex de, hl
         pop hl
         or a
         sbc hl, de
         ld (K), hl
-        ret
-
-Shr3:                                   ; HL = HL >> 3 (logical)
-        srl h
-        rr l
-        srl h
-        rr l
-        srl h
-        rr l
-        ret
-
-NegateIIJJ:
-        ld hl, (II)
-        NEGHL
-        ld (II), hl
         ret
 
 ; ---------------------------------------------------------------------------
@@ -305,6 +320,7 @@ NegateIIJJ:
 ; otherwise carry clear and the sign flag set from LL. Preserves C.
 
 GetObjPitchAngle:
+        push bc
         ld h, SEG_LO / 256
         ld a, c
         inc a
@@ -317,38 +333,73 @@ projRefY:
         ex de, hl
         or a
         sbc hl, de                      ; dy
-        ld a, h
-        ld (signDy), a
-        or a
+        ld c, h                         ; C: the sign of dy
         jp p, @y1
         NEGHL
 @y1:
+        ld a, l
+        and $F8                         ; (the height's low 3 bits are not
+        ld l, a                         ; used)
         ld (absDy), hl
-        ld hl, (K)
+        ld hl, (K)                      ; normalise the distance: Md, ed
         ld a, h
-        or l
-        jp z, @invisible                ; distance 0
-        call Normalize                  ; distance: A = Md, B = ed
+        or a
+        jp z, @dLow
+        ld d, P_EXPC / 256
+        ld e, a
+        ld a, (de)
+        ld b, a
+        cpl
+        add a, 8
+        ld (@ds + 1), a
+@ds:
+        jr @dc                          ; offset patched: n + 1 shifts follow
+@dc:
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        ld a, h
+@dn:
+        ld (@md + 1), a
         ld e, a
         ld a, b
         ld (scaleDown), a
         ld (@ed + 1), a
         ld a, e
-        ld (@md + 1), a
-        scf
-        rra                             ; $80 | Md >> 1
-        sub $80
+        srl a
         ld l, a
         ld h, P_SCALE / 256
         ld a, (hl)
         ld (scaleUp), a
-        ld hl, (absDy)
-        ld a, l
-        and $F8
-        ld l, a
-        or h
-        jr z, @zero
-        call Normalize                  ; height: A = My, B = ey
+        ld hl, (absDy)                  ; normalise the height: My, ey
+        ld a, h
+        or a
+        jp z, @yLow
+        ld d, P_EXPC / 256
+        ld e, a
+        ld a, (de)
+        ld b, a
+        cpl
+        add a, 8
+        ld (@ys + 1), a
+@ys:
+        jr @yc                          ; offset patched
+@yc:
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        add hl, hl
+        ld a, h
+@yn:
         ld e, a
         ld a, b
         sub 5
@@ -382,30 +433,47 @@ projRefY:
         add a, P_EXPTAB / 256
         ld h, a
         ld l, e
-        ld a, (hl)
-        jr @t
-@zero:
-        xor a
-@t:
-        ld (ratioT), a
+        ld a, (hl)                      ; T
         cp $80
         jr nc, @invisible
-        ld b, a
-        ld a, (signDy)
-        or a
-        jp p, @up
-        ld a, 60
-        sub b
-        jr @p7
+@t:
+        bit 7, c
+        jr z, @up
+        neg                             ; below: 60 - T, above: 60 + T
 @up:
-        ld a, b
         add a, 60
-@p7:
         ld hl, playerPitchAngle
         sub (hl)
         ld (LL), a
+        pop bc
         or a
         ret
 @invisible:
+        pop bc
         scf
         ret
+@zero:
+        xor a
+        jr @t
+@dLow:                                  ; distance < 256
+        or l
+        jr z, @invisible                ; distance 0
+        ld e, l
+        ld d, P_EXPC / 256
+        ld a, (de)
+        or 8
+        ld b, a
+        dec d                           ; P_MANT
+        ld a, (de)
+        jp @dn
+@yLow:                                  ; height < 256
+        or l
+        jr z, @zero
+        ld e, l
+        ld d, P_EXPC / 256
+        ld a, (de)
+        or 8
+        ld b, a
+        dec d
+        ld a, (de)
+        jp @yn

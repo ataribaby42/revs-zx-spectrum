@@ -136,11 +136,16 @@ the cockpit cowl (row 119) as on the C64 (horizon 17 lines above its cowl).
 2. The four verge edges (left verge start, left track start, right verge start,
    right grass start) are polylines through the segment points. A DDA walks
    each segment and records the x position per row in four 80-byte edge tables
-   (plus the colour of the verge mark per row).
+   (plus the colour of the verge mark per row). A segment that spans one line
+   stores the clamped x of its two ends, a step over 2 or 4 lines is a shift,
+   and a segment with both ends off the screen on the same side gets the
+   clamped x (0 or 255) without a division.
 3. The row compositor fills each row of the back buffer (32 bytes per row,
    linear layout) from left to right: grass | verge | road | verge | grass, or
    sky above the horizon. Whole bytes are written with unrolled stores; only
-   the boundary bytes are masked.
+   the boundary bytes are masked; a line with road across the whole view is
+   one fill. Sky rows and ground rows are separate loops, and sky rows that
+   are still sky from the last frame are skipped.
 4. Objects (cars, signs, corner markers) are lists of rectangles (scaffolds
    scaled as in the original); they are drawn over the buffer with pattern
    fills, clipped against the terrain line as in the original.
@@ -266,9 +271,10 @@ layout and constants: $D7, $B6, $A0, AND #$1F, 40).
   code.
 * `tests/test_sound.py`: the sound while driving in the emulator (beeper
   toggles per frame): silent menus and engine off, starter pops, engine
-  clicks = 1 + revs / 32, gear change noise, squeal, N mute, silent pause,
-  a silent menu after leaving a squeal, a crash: the impact noise and then
-  silence for the CRASHED pause; the border black at every port write.
+  clicks = 1 + revs / 64, never wider apart at higher revs, gear change
+  noise, squeal, N mute, silent pause, a silent menu after leaving a squeal,
+  a crash: the impact noise and then silence for the CRASHED pause; the
+  border black at every port write.
 * `tests/test_session.py`: the length of qualifying and the number of laps
   chosen in the menus are the C64 values in the driving loop (each option).
 * `tests/test_soak.py [frames] [seed]`: long random play in the emulator
@@ -303,8 +309,9 @@ layout and constants: $D7, $B6, $A0, AND #$1F, 40).
   C64 tracks (their calls into the block, $5A22/$5A25, are common stubs).
 * $C800-$F5FF: page-aligned tables (segment buffer, verges, objects, cars,
   projection tables, view buffer, edge tables, x conversion, masks, quarter
-  squares); $F700 driver times/points; $F800 second hot code area; $FC00
-  object line buffers; stack below $FD60.
+  squares); the 24 bytes of masks at $F100 are followed by a third hot code
+  area (the sound); $F700 driver times/points; $F800 second hot code area;
+  $FC00 object line buffers; stack below $FD60.
 * $FD60-$FFF3: the track code of an extra track (below). IM2 without a
   table: I = $39, where the ROM holds $FF bytes, so the vector is $FFFF; it
   holds JR, whose offset is the ROM's first byte ($F3), to JP Isr at $FFF4.

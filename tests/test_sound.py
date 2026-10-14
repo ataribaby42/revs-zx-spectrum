@@ -2,7 +2,8 @@
 
 * silence in the menus and with the engine off; the starter pops while T
   cranks the engine;
-* the engine: 1 + revs / 32 clicks per frame (two toggles each);
+* the engine: 1 + revs / 64 clicks per frame (two toggles each), spaced
+  more closely as the revs rise (never wider at higher revs);
 * a burst of noise when changing gear; squealing tyres add clicks;
 * N mutes everything and brings it back; H (pause) is silent;
 * leaving a session while the tyres squeal (Caps Shift + 3): the menu is
@@ -75,18 +76,27 @@ def main():
     frames, pops = start_engine(m)
     check(m.mem[S['engineStatus']] != 0, f'T starts the engine ({frames} frames)')
 
-    # the engine in neutral at different revs: clicks = 1 + revs / 32
+    # the engine in neutral at different revs: clicks = 1 + revs / 64
     exact = total = 0
     seen = set()
+    gaps = {}                                   # revs -> T from a click's start to its end
     for keys in [()] * 40 + [('Q',)] * 120 + [()] * 80:
         revs = m.mem[S['revCount']]
+        first = len(m.ports.beeper)
         t = toggles(m, 1, keys)[0]
         if m.mem[S['revCount']] == revs and m.mem[S['engineStatus']] and not m.mem[S['noiseFrames']]:
             total += 1
-            exact += t == 2 * (1 + revs // 32)
-            seen.add(1 + revs // 32)
+            exact += t == 2 * (1 + revs // 64)
+            seen.add(1 + revs // 64)
+            if t >= 2:
+                gaps.setdefault(revs, []).append(m.ports.beeper[first + 1] - m.ports.beeper[first])
     check(total > 100 and exact >= 0.9 * total and len(seen) >= 3,
-          f'engine: 1 + revs / 32 clicks per frame ({exact} of {total} frames, click counts {sorted(seen)})')
+          f'engine: 1 + revs / 64 clicks per frame ({exact} of {total} frames, click counts {sorted(seen)})')
+    gap = [(r, sorted(g)[len(g) // 2]) for r, g in sorted(gaps.items())]
+    wider = [(a, b) for a, b in zip(gap, gap[1:]) if b[1] > a[1] + 12]    # (I/O contention)
+    check(len(gap) > 10 and gap[0][0] < 128 <= gap[-1][0] and not wider,
+          f'engine: the clicks never wider apart at higher revs (revs {gap[0][0]}-{gap[-1][0]}, '
+          f'{gap[0][1]}-{gap[-1][1]} T{", wider: " + str(wider[:3]) if wider else ""})')
 
     # a gear change: a burst of noise
     m.run_frames(30, ('Q',))
@@ -122,7 +132,7 @@ def main():
         revs = m.mem[S['revCount']]
         t = toggles(m, 1, ('Q', 'O'))[0]
         if m.mem[sq] & 0x80 and not m.mem[S['noiseFrames']]:
-            squeal.append(t - 2 * (1 + revs // 32))
+            squeal.append(t - 2 * (1 + revs // 64))
             if len(squeal) > 10:
                 break
     check(len(squeal) > 10 and max(squeal) > 0, f'squealing tyres add clicks ({squeal[:8]})')

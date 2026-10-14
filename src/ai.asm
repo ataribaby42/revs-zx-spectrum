@@ -9,7 +9,8 @@ MoveCars:
         ld a, (raceStarting)
         or a
         ret m
-        ld hl, 0                        ; not a race: NOP / NOP
+        ld hl, $00FE                    ; not a race: CP 0 (A unchanged; SUB E
+                                        ; sets the flags again)
         ld a, (raceStarted)
         or a
         jp p, @m0
@@ -81,7 +82,7 @@ MoveCars:
         ccf                             ; Z80 borrow = not 6502 carry
 @slow:
         sbc a, 0                        ; patched: SBC A, n in a race, else
-                                        ; NOP / NOP
+                                        ; CP 0
         sub e                           ; - T
         ld h, 0
         jr nc, @accel

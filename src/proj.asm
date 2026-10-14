@@ -22,9 +22,5 @@ P_SCALE         EQU PROJ_TABLES + $1000 ; C64 $6640-$66BF scale factor (128 byte
 ; Projection temporaries (own layout; BBC names in comments)
 absDx:          dw 0            ; PP / SS
 absDz:          dw 0            ; RR / UU
-signDx:         db 0            ; VV
-signDz:         db 0            ; GG
 absDy:          dw 0            ; QQ / TT
-signDy:         db 0            ; WW
-ratioT:         db 0            ; T
 

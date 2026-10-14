@@ -44,23 +44,25 @@ SoundTick:
         ld a, (engineStatus)
         or a
         jr z, @starter
-        ld a, (revCount)                ; clicks = 1 + revs / 32
+        ld a, (revCount)                ; clicks = 1 + revs / 64
         ld c, a
-        rrca
-        rrca
-        rrca
-        rrca
-        rrca
-        and 7
+        rlca
+        rlca
+        and 3
         inc a
         ld b, a
-        ld a, c                         ; spacing shrinks with the revs
+        ld a, c                         ; spacing shrinks with the revs:
+        cp 128                          ; 21 - revs / 8 loops, 6 from 120
+        ld a, 6                         ; on (128 and above too)
+        jr nc, @sp
+        ld a, c
         cpl
         rrca
         rrca
         rrca
         and $0F
         add a, 6
+@sp:
         ld c, a
 @e1:
         ld a, SPEAKER
@@ -71,12 +73,13 @@ SoundTick:
         jr nz, @e2
         xor a
         out ($FE), a
+        dec b
+        ret z                           ; (no wait after the last click)
         ld a, c
 @e3:
         dec a
         jr nz, @e3
-        djnz @e1
-        ret
+        jp @e1
 @starter:                               ; the starter, as the user's ZX
         ld hl, starterFrames            ; version: while ProcessEngineStart
         ld a, (hl)                      ; cranks and T is still held, sparse
