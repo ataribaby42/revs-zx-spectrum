@@ -1,9 +1,9 @@
 """The player's speed in the HUD in mph: playerSpeed (8.8) * 1.3125 (1 + 1/4
 + 1/16; the car moves 2 units per iteration per unit of speed, Silverstone
 is 124,289 units for 2.932 miles, an iteration is 0.13 s; at most 254),
-right-aligned in three columns of row 1 and followed by MPH: "152MPH" at the
-left in practice and qualifying, "L: 5 125MPH Behind: ..." in the race (the
-laps to go in columns 2-3). UpdateDashboard prints it when it changes, never
+right-aligned in three columns of row 1 and followed by MPH, always at the
+left: "152MPH" in practice and qualifying, "125MPH L: 5 Behind: ..." in the
+race (the laps to go in columns 9-10). UpdateDashboard prints it when it changes, never
 over the qualifying time warnings or FINISHED, and not while a notice covers
 the HUD; RedrawHud, InitDrivingScreen and PrintSecondLine make it (and MPH)
 print again. The rest of both HUD rows stays as it was. The rows are read
@@ -86,16 +86,16 @@ def main():
 
     h.session(race=True, laps=20)                       # race, 20 laps to go
     h.speed(94)
-    h.check('race, 20 laps', h.row(1)[:12], f'L:20 {mph(94, 0)}MPH ')
-    h.session(race=True)                                # race: columns 5-10
+    h.check('race, 20 laps', h.row(1)[:12], f'{mph(94, 0)}MPH L:20 ')
+    h.session(race=True)                                # race: columns 0-5
     top, line = h.row(0), h.row(1)
-    h.check('race row 1 before', line, 'L: 5' + ' ' * 8 + 'Behind: Max Throttle')
+    h.check('race row 1 before', line, ' ' * 7 + 'L: 5 Behind: Max Throttle')
     for v in SPEEDS:
         h.speed(*v)
-        h.check(f'race {v}', (h.row(0), h.row(1)), (top, line[:5] + f'{mph(*v):>3}MPH' + line[11:]))
+        h.check(f'race {v}', (h.row(0), h.row(1)), (top, f'{mph(*v):>3}MPH' + line[6:]))
     z.call('PrintSecondLine', c=44)                     # the row printed again
     h.speed(*v)
-    h.check('race row 1 printed again', h.row(1)[:12], f'L:   {mph(*v):>3}MPH ')
+    h.check('race row 1 printed again', h.row(1)[:12], f'{mph(*v):>3}MPH L:   ')
 
     z.set('leaveTrackTimer', 55)                        # finished
     z.call('PrintFinished')

@@ -400,8 +400,8 @@ UpdatePositionInfo:
 
 ; ---------------------------------------------------------------------------
 ; PrintSpeed: the player's speed in mph, right-aligned in three columns of
-; HUD row 1 and followed by MPH: columns 0-5 in practice and qualifying, 5-10
-; in the race (after the laps to go). mph = playerSpeed (8.8) * 1.3125 (1 +
+; HUD row 1 and followed by MPH: always columns 0-5 (in the race followed by
+; the laps to go). mph = playerSpeed (8.8) * 1.3125 (1 +
 ; 1/4 + 1/16): the car moves 2 units per iteration per unit of speed, an
 ; iteration is 0.13 s, and Silverstone is 124,289 units for 2.932 miles; at
 ; most 254. Printed only when it changes, and not over the time warnings or
@@ -439,7 +439,6 @@ PrintSpeed:
         rla
         jr nc, @s1
         ld a, (leaveTrackTimer)         ; the race: not after FINISHED
-        ld b, 5
         jr @s2
 @s1:
         ld a, (qualifyTimeEnding)       ; not over the time warnings

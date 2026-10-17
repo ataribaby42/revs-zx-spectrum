@@ -350,7 +350,7 @@ token40:        db "Lap Time            Best        ", 0
 token41:        db "   Less than one minute to go   ", 0
 token42:        db "        YOUR TIME IS UP!        ", 0
 token43:        db "Pos.      In front:             ", 0
-token44:        db "L:          Behind:             ", 0
+token44:        db "       L:   Behind:             ", 0
 token45:        db "                                ", 0
 token48:        db "          PLEASE WAIT           ", 0
 token53:        db "            FINISHED            ", 0
@@ -390,15 +390,16 @@ PrintSpaces:
         xor a
         ret
 
-; PrintPosition / PrintLapsToGo: A = BCD value
+; PrintPosition / PrintLapsToGo: A = BCD value (the laps to go after the
+; speed, see PrintSpeed)
 PrintPosition:
         ld bc, 5 * 256 + 0
         jp PrintBCD
 PrintLapsToGo:
-        ld bc, 2 * 256 + 1
+        ld bc, 9 * 256 + 1
         jp PrintBCD
 
-; PrintFinished: FINISHED in place of the laps to go (row 1)
+; PrintFinished: FINISHED in place of the speed and the laps to go (row 1)
 PrintFinished:
         ld hl, finishedText
         ld bc, 0 * 256 + 1

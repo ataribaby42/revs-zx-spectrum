@@ -377,8 +377,8 @@ The two HUD rows use the ROM font. They show:
 * timers in practice and qualifying;
 * the position, the laps and the nearest drivers in a race;
 * the player's speed in mph, right-aligned in three columns of row 1 and
-  followed by MPH: `146MPH` on the left in practice and qualifying,
-  `L: 5 125MPH Behind: ...` in a race (the laps to go after `L:`).
+  followed by MPH, always on the left: `146MPH` in practice and qualifying,
+  `125MPH L: 5 Behind: ...` in a race (the laps to go after `L:`).
   `PrintSpeed` prints it when it changes, never over the time warnings or
   FINISHED. mph = `playerSpeed` × 1.3125 (1 + 1/4 + 1/16), measured in the
   emulator: the car moves 2 units per iteration per unit of speed, an
