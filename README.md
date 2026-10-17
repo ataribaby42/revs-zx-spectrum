@@ -165,6 +165,8 @@ the verification and the performance work in detail.
 * The cockpit, loading screen, menus, sounds and controls come from
   ataribaby's earlier ZX Spectrum versions
   ([revs-zx-spectrum](https://github.com/ataribaby42/revs-zx-spectrum)).
+  Art's version [spectrumcomputing.co.uk](https://spectrumcomputing.co.uk/forums/viewtopic.php?p=204209#p204209)
+
 
 Revs is the work of its original author and publishers. This is a
 non-commercial fan conversion for preservation and study.
